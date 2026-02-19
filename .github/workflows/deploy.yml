@@ -25,17 +25,19 @@ jobs:
         run: mvn clean package -DskipTests
 
       - name: Docker Login
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build Docker Image
+      - name: Build and Push Docker Image
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/eduflow:${{ github.sha }} \
-                       -t ${{ secrets.DOCKER_USERNAME }}/eduflow:latest .
-
-      - name: Push Docker Image
-        run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/eduflow:${{ github.sha }}
-          docker push ${{ secrets.DOCKER_USERNAME }}/eduflow:latest
+          docker build -t ${DOCKER_USER}/eduflow:${IMAGE_TAG} -t ${DOCKER_USER}/eduflow:latest .
+          docker push ${DOCKER_USER}/eduflow:${IMAGE_TAG}
+          docker push ${DOCKER_USER}/eduflow:latest
 
   deploy:
     name: Deploy EduFlow to VPS
@@ -47,12 +49,18 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
       - name: Deploy to VPS
+        env:
+          SCP_PASSWORD: ${{ secrets.SCP_PASSWORD }}
+          SCP_USERNAME: ${{ secrets.SCP_USERNAME }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
         run: |
-          sshpass -p "${{ secrets.SCP_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.SCP_USERNAME }}@${{ secrets.SERVER_IP }} << EOF
+          sshpass -p "${SCP_PASSWORD}" ssh -o StrictHostKeyChecking=no ${SCP_USERNAME}@${SERVER_IP} << EOF
 
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
-          docker pull ${{ secrets.DOCKER_USERNAME }}/eduflow:latest
+          docker pull ${DOCKER_USER}/eduflow:latest
 
           docker stop eduflow-service || true
           docker rm eduflow-service || true
@@ -62,6 +70,6 @@ jobs:
             --restart always \
             -p 8099:8080 \
             -e SPRING_PROFILES_ACTIVE=prod \
-            ${{ secrets.DOCKER_USERNAME }}/eduflow:latest
+            ${DOCKER_USER}/eduflow:latest
 
           EOF
