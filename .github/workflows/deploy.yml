@@ -62,11 +62,11 @@ jobs:
 
           docker pull ${DOCKER_USER}/eduflow:latest
 
-          docker stop eduflow-service || true
-          docker rm eduflow-service || true
+          docker stop eduflow || true
+          docker rm eduflow || true
 
           docker run -d \
-            --name eduflow-service \
+            --name eduflow \
             --restart always \
             -p 8099:8080 \
             -e SPRING_PROFILES_ACTIVE=prod \
