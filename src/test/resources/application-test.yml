@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+  h2:
+    console:
+      enabled: false
+
+jwt:
+  secret: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi10aGF0LWlzLWF0LWxlYXN0LTI1Ni1iaXRz
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+
+payment:
+  gateway:
+    base-url: https://test-api.payment-gateway.zm
+    api-key: test-api-key
+    secret-key: test-secret-key
+    webhook-secret: test-webhook-secret
+    timeout: 5000
+
+logging:
+  level:
+    root: WARN
+    com.eduflow: INFO
