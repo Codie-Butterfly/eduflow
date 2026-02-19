@@ -30,6 +30,9 @@ public class SchoolClass extends BaseEntity {
     @Column(name = "max_capacity")
     private Integer maxCapacity;
 
+    @Builder.Default
+    private Boolean active = true;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "class_teacher_id")
     private Teacher classTeacher;

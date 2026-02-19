@@ -20,6 +20,7 @@ public class ClassResponse {
     private String section;
     private Integer maxCapacity;
     private Integer currentEnrollment;
+    private Boolean active;
 
     private TeacherSummary classTeacher;
     private List<SubjectSummary> subjects;
