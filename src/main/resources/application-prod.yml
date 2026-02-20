@@ -1,9 +1,9 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:eduflow}
+    url: jdbc:postgresql://postgres:5432/eduflow
+    username: admin
+    password: "codie7APjYQSu"
     driver-class-name: org.postgresql.Driver
-    username: ${DB_USERNAME:eduflow}
-    password: ${DB_PASSWORD:}
 
   h2:
     console:
@@ -11,7 +11,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
