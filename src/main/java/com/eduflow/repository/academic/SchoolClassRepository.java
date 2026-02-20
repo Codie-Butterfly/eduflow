@@ -38,4 +38,10 @@ public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> 
 
     @Query("SELECT COUNT(s) FROM SchoolClass c JOIN c.students s WHERE c.id = :classId")
     Long countStudentsByClassId(@Param("classId") Long classId);
+
+    @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.schoolClass.id = :classId AND e.status = 'ACTIVE'")
+    Long countEnrollmentsByClassId(@Param("classId") Long classId);
+
+    @Query("SELECT c FROM SchoolClass c LEFT JOIN FETCH c.subjects WHERE c.id = :classId")
+    Optional<SchoolClass> findByIdWithSubjects(@Param("classId") Long classId);
 }

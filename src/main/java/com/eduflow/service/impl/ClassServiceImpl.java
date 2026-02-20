@@ -78,7 +78,7 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional(readOnly = true)
     public ClassResponse getClassById(Long id) {
-        SchoolClass schoolClass = classRepository.findById(id)
+        SchoolClass schoolClass = classRepository.findByIdWithSubjects(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Class", "id", id));
         return mapToResponse(schoolClass);
     }
@@ -265,7 +265,7 @@ public class ClassServiceImpl implements ClassService {
                         .build())
                 .collect(Collectors.toList());
 
-        Long studentCount = classRepository.countStudentsByClassId(schoolClass.getId());
+        Long enrollmentCount = classRepository.countEnrollmentsByClassId(schoolClass.getId());
 
         return ClassResponse.builder()
                 .id(schoolClass.getId())
@@ -274,7 +274,7 @@ public class ClassServiceImpl implements ClassService {
                 .academicYear(schoolClass.getAcademicYear())
                 .section(schoolClass.getSection())
                 .maxCapacity(schoolClass.getMaxCapacity())
-                .currentEnrollment(studentCount.intValue())
+                .currentEnrollment(enrollmentCount.intValue())
                 .active(schoolClass.getActive())
                 .classTeacher(teacherSummary)
                 .subjects(subjectSummaries)
