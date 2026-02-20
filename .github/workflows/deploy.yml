@@ -67,8 +67,9 @@ jobs:
 
           docker run -d \
             --name eduflow \
+            --network app-network \
             --restart always \
-            -p 8099:8080 \
+            -p 8099:8099 \
             -e SPRING_PROFILES_ACTIVE=prod \
             ${DOCKER_USER}/eduflow:latest
 
