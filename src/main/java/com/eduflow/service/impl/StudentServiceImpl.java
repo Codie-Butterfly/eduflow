@@ -293,9 +293,11 @@ public class StudentServiceImpl implements StudentService {
                 .enrollmentDate(student.getEnrollmentDate())
                 .address(student.getAddress())
                 .bloodGroup(student.getBloodGroup())
+                .medicalConditions(student.getMedicalConditions())
                 .status(student.getStatus())
                 .currentClass(classSummary)
                 .parent(parentSummary)
+                .medicalConditions(student.getMedicalConditions())
                 .build();
     }
 }
