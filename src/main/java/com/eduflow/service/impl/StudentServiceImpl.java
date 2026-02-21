@@ -248,8 +248,10 @@ public class StudentServiceImpl implements StudentService {
 
     private String generateStudentId() {
         String year = String.valueOf(LocalDate.now().getYear());
-        String random = String.format("%04d", (int) (Math.random() * 10000));
-        return "STU" + year + random;
+        String prefix = "STU" + year;
+        Integer maxNum = studentRepository.findMaxStudentIdNumber(prefix);
+        int nextNum = (maxNum != null ? maxNum : 0) + 1;
+        return prefix + String.format("%04d", nextNum);
     }
 
     private String generateTemporaryPassword() {
@@ -297,7 +299,6 @@ public class StudentServiceImpl implements StudentService {
                 .status(student.getStatus())
                 .currentClass(classSummary)
                 .parent(parentSummary)
-                .medicalConditions(student.getMedicalConditions())
                 .build();
     }
 }

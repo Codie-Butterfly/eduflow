@@ -193,8 +193,10 @@ public class TeacherServiceImpl implements TeacherService {
 
     private String generateEmployeeId() {
         String year = String.valueOf(LocalDate.now().getYear());
-        String random = String.format("%04d", (int) (Math.random() * 10000));
-        return "TCH" + year + random;
+        String prefix = "TCH" + year;
+        Integer maxNum = teacherRepository.findMaxEmployeeIdNumber(prefix);
+        int nextNum = (maxNum != null ? maxNum : 0) + 1;
+        return prefix + String.format("%04d", nextNum);
     }
 
     private String generateTemporaryPassword() {

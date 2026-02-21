@@ -27,4 +27,7 @@ public interface TeacherRepository extends JpaRepository<Teacher, Long> {
     @Query("SELECT t FROM Teacher t WHERE LOWER(t.user.firstName) LIKE LOWER(CONCAT('%', :name, '%')) " +
             "OR LOWER(t.user.lastName) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<Teacher> searchByName(@Param("name") String name);
+
+    @Query("SELECT MAX(CAST(SUBSTRING(t.employeeId, 8) AS int)) FROM Teacher t WHERE t.employeeId LIKE CONCAT(:prefix, '%')")
+    Integer findMaxEmployeeIdNumber(@Param("prefix") String prefix);
 }

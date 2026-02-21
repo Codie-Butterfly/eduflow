@@ -226,17 +226,17 @@ public class AuthServiceImpl implements AuthService {
     private void createRoleSpecificEntity(User user, Role.RoleName roleName) {
         switch (roleName) {
             case TEACHER -> {
-                String employeeId = "TCH" + LocalDate.now().getYear() + String.format("%04d", (int) (Math.random() * 10000));
+                String employeeId = generateEmployeeId();
                 Teacher teacher = Teacher.builder()
                         .employeeId(employeeId)
                         .user(user)
                         .dateOfJoining(LocalDate.now())
                         .build();
                 teacherRepository.save(teacher);
-                log.info("Teacher profile created for user: {}", user.getEmail());
+                log.info("Teacher profile created for user: {} with employeeId: {}", user.getEmail(), employeeId);
             }
             case STUDENT -> {
-                String studentId = "STU" + LocalDate.now().getYear() + String.format("%04d", (int) (Math.random() * 10000));
+                String studentId = generateStudentId();
                 Student student = Student.builder()
                         .studentId(studentId)
                         .user(user)
@@ -244,7 +244,7 @@ public class AuthServiceImpl implements AuthService {
                         .status(Student.StudentStatus.ACTIVE)
                         .build();
                 studentRepository.save(student);
-                log.info("Student profile created for user: {}", user.getEmail());
+                log.info("Student profile created for user: {} with studentId: {}", user.getEmail(), studentId);
             }
             case PARENT -> {
                 Parent parent = Parent.builder()
@@ -257,5 +257,21 @@ public class AuthServiceImpl implements AuthService {
                 // ADMIN doesn't need a separate entity
             }
         }
+    }
+
+    private String generateEmployeeId() {
+        String year = String.valueOf(LocalDate.now().getYear());
+        String prefix = "TCH" + year;
+        Integer maxNum = teacherRepository.findMaxEmployeeIdNumber(prefix);
+        int nextNum = (maxNum != null ? maxNum : 0) + 1;
+        return prefix + String.format("%04d", nextNum);
+    }
+
+    private String generateStudentId() {
+        String year = String.valueOf(LocalDate.now().getYear());
+        String prefix = "STU" + year;
+        Integer maxNum = studentRepository.findMaxStudentIdNumber(prefix);
+        int nextNum = (maxNum != null ? maxNum : 0) + 1;
+        return prefix + String.format("%04d", nextNum);
     }
 }

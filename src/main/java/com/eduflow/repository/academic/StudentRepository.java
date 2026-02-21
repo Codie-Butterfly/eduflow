@@ -35,4 +35,7 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     @Query("SELECT s FROM Student s WHERE LOWER(s.user.firstName) LIKE LOWER(CONCAT('%', :name, '%')) " +
             "OR LOWER(s.user.lastName) LIKE LOWER(CONCAT('%', :name, '%'))")
     Page<Student> searchByName(@Param("name") String name, Pageable pageable);
+
+    @Query("SELECT MAX(CAST(SUBSTRING(s.studentId, 8) AS int)) FROM Student s WHERE s.studentId LIKE CONCAT(:prefix, '%')")
+    Integer findMaxStudentIdNumber(@Param("prefix") String prefix);
 }
