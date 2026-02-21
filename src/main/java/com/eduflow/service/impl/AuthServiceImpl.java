@@ -3,12 +3,18 @@ package com.eduflow.service.impl;
 import com.eduflow.dto.request.*;
 import com.eduflow.dto.response.AuthResponse;
 import com.eduflow.dto.response.MessageResponse;
+import com.eduflow.entity.academic.Parent;
+import com.eduflow.entity.academic.Student;
+import com.eduflow.entity.academic.Teacher;
 import com.eduflow.entity.user.Role;
 import com.eduflow.entity.user.User;
 import com.eduflow.exception.BadRequestException;
 import com.eduflow.exception.DuplicateResourceException;
 import com.eduflow.exception.ResourceNotFoundException;
 import com.eduflow.exception.UnauthorizedException;
+import com.eduflow.repository.academic.ParentRepository;
+import com.eduflow.repository.academic.StudentRepository;
+import com.eduflow.repository.academic.TeacherRepository;
 import com.eduflow.repository.user.RoleRepository;
 import com.eduflow.repository.user.UserRepository;
 import com.eduflow.security.jwt.JwtTokenProvider;
@@ -23,6 +29,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -33,6 +40,9 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final TeacherRepository teacherRepository;
+    private final StudentRepository studentRepository;
+    private final ParentRepository parentRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
@@ -93,6 +103,9 @@ public class AuthServiceImpl implements AuthService {
 
         user.addRole(role);
         user = userRepository.save(user);
+
+        // Create corresponding entity based on role
+        createRoleSpecificEntity(user, roleName);
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -208,5 +221,41 @@ public class AuthServiceImpl implements AuthService {
                                 .collect(Collectors.toSet()))
                         .build())
                 .build();
+    }
+
+    private void createRoleSpecificEntity(User user, Role.RoleName roleName) {
+        switch (roleName) {
+            case TEACHER -> {
+                String employeeId = "TCH" + LocalDate.now().getYear() + String.format("%04d", (int) (Math.random() * 10000));
+                Teacher teacher = Teacher.builder()
+                        .employeeId(employeeId)
+                        .user(user)
+                        .dateOfJoining(LocalDate.now())
+                        .build();
+                teacherRepository.save(teacher);
+                log.info("Teacher profile created for user: {}", user.getEmail());
+            }
+            case STUDENT -> {
+                String studentId = "STU" + LocalDate.now().getYear() + String.format("%04d", (int) (Math.random() * 10000));
+                Student student = Student.builder()
+                        .studentId(studentId)
+                        .user(user)
+                        .enrollmentDate(LocalDate.now())
+                        .status(Student.StudentStatus.ACTIVE)
+                        .build();
+                studentRepository.save(student);
+                log.info("Student profile created for user: {}", user.getEmail());
+            }
+            case PARENT -> {
+                Parent parent = Parent.builder()
+                        .user(user)
+                        .build();
+                parentRepository.save(parent);
+                log.info("Parent profile created for user: {}", user.getEmail());
+            }
+            default -> {
+                // ADMIN doesn't need a separate entity
+            }
+        }
     }
 }

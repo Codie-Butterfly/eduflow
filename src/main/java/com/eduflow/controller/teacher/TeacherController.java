@@ -40,6 +40,29 @@ public class TeacherController {
     private final GradeRepository gradeRepository;
     private final HomeworkRepository homeworkRepository;
 
+    @GetMapping("/dashboard")
+    @Operation(summary = "Get teacher dashboard", description = "Get teacher dashboard summary")
+    public ResponseEntity<java.util.Map<String, Object>> getDashboard(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = getTeacherFromUser(userDetails);
+
+        List<SchoolClass> classes = classRepository.findByClassTeacherId(teacher.getId());
+        int totalStudents = classes.stream()
+                .mapToInt(c -> c.getStudents().size())
+                .sum();
+
+        java.util.Map<String, Object> dashboard = new java.util.HashMap<>();
+        dashboard.put("teacherId", teacher.getId());
+        dashboard.put("employeeId", teacher.getEmployeeId());
+        dashboard.put("name", teacher.getUser().getFullName());
+        dashboard.put("email", teacher.getUser().getEmail());
+        dashboard.put("totalClasses", classes.size());
+        dashboard.put("totalStudents", totalStudents);
+        dashboard.put("subjects", teacher.getSubjects().size());
+
+        return ResponseEntity.ok(dashboard);
+    }
+
     @GetMapping("/classes")
     @Operation(summary = "Get assigned classes", description = "Get classes assigned to the teacher")
     public ResponseEntity<List<ClassResponse>> getAssignedClasses(
