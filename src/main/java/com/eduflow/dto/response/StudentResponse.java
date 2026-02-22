@@ -26,6 +26,7 @@ public class StudentResponse {
     private LocalDate enrollmentDate;
     private String address;
     private String bloodGroup;
+    private String medicalConditions;
     private Student.StudentStatus status;
 
     private ClassSummary currentClass;
