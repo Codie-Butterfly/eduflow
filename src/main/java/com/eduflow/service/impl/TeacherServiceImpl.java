@@ -133,7 +133,7 @@ public class TeacherServiceImpl implements TeacherService {
     @Override
     @Transactional
     public TeacherResponse updateTeacher(Long id, CreateTeacherRequest request) {
-        Teacher teacher = teacherRepository.findById(id)
+        Teacher teacher = teacherRepository.findByIdWithRelationships(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher", "id", id));
 
         User user = teacher.getUser();
@@ -163,7 +163,7 @@ public class TeacherServiceImpl implements TeacherService {
     @Override
     @Transactional
     public void deleteTeacher(Long id) {
-        Teacher teacher = teacherRepository.findById(id)
+        Teacher teacher = teacherRepository.findByIdWithRelationships(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher", "id", id));
 
         teacher.getUser().setEnabled(false);
@@ -174,7 +174,7 @@ public class TeacherServiceImpl implements TeacherService {
     @Override
     @Transactional
     public TeacherResponse addSubjectToTeacher(Long teacherId, Long subjectId) {
-        Teacher teacher = teacherRepository.findById(teacherId)
+        Teacher teacher = teacherRepository.findByIdWithRelationships(teacherId)
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher", "id", teacherId));
 
         Subject subject = subjectRepository.findById(subjectId)
@@ -190,7 +190,7 @@ public class TeacherServiceImpl implements TeacherService {
     @Override
     @Transactional
     public TeacherResponse removeSubjectFromTeacher(Long teacherId, Long subjectId) {
-        Teacher teacher = teacherRepository.findById(teacherId)
+        Teacher teacher = teacherRepository.findByIdWithRelationships(teacherId)
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher", "id", teacherId));
 
         Subject subject = subjectRepository.findById(subjectId)
@@ -216,22 +216,28 @@ public class TeacherServiceImpl implements TeacherService {
     }
 
     private TeacherResponse mapToResponse(Teacher teacher) {
-        List<TeacherResponse.SubjectSummary> subjectSummaries = teacher.getSubjects().stream()
-                .map(s -> TeacherResponse.SubjectSummary.builder()
-                        .id(s.getId())
-                        .name(s.getName())
-                        .code(s.getCode())
-                        .build())
-                .collect(Collectors.toList());
+        List<TeacherResponse.SubjectSummary> subjectSummaries = List.of();
+        if (teacher.getSubjects() != null) {
+            subjectSummaries = teacher.getSubjects().stream()
+                    .map(s -> TeacherResponse.SubjectSummary.builder()
+                            .id(s.getId())
+                            .name(s.getName())
+                            .code(s.getCode())
+                            .build())
+                    .collect(Collectors.toList());
+        }
 
-        List<TeacherResponse.ClassSummary> classSummaries = teacher.getAssignedClasses().stream()
-                .map(c -> TeacherResponse.ClassSummary.builder()
-                        .id(c.getId())
-                        .name(c.getName())
-                        .grade(c.getGrade())
-                        .academicYear(c.getAcademicYear())
-                        .build())
-                .collect(Collectors.toList());
+        List<TeacherResponse.ClassSummary> classSummaries = List.of();
+        if (teacher.getAssignedClasses() != null) {
+            classSummaries = teacher.getAssignedClasses().stream()
+                    .map(c -> TeacherResponse.ClassSummary.builder()
+                            .id(c.getId())
+                            .name(c.getName())
+                            .grade(c.getGrade())
+                            .academicYear(c.getAcademicYear())
+                            .build())
+                    .collect(Collectors.toList());
+        }
 
         User user = teacher.getUser();
         return TeacherResponse.builder()
