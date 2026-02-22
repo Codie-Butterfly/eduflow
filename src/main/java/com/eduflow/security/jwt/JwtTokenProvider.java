@@ -74,10 +74,11 @@ public class JwtTokenProvider {
                     .build()
                     .parseSignedClaims(token);
             return true;
-        } catch (MalformedJwtException ex) {
-            log.error("Invalid JWT token");
         } catch (ExpiredJwtException ex) {
             log.error("Expired JWT token");
+            throw ex; // Re-throw to be handled by filter
+        } catch (MalformedJwtException ex) {
+            log.error("Invalid JWT token");
         } catch (UnsupportedJwtException ex) {
             log.error("Unsupported JWT token");
         } catch (IllegalArgumentException ex) {

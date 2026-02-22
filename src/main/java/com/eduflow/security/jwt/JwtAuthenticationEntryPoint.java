@@ -29,10 +29,22 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 
+        Boolean jwtExpired = (Boolean) request.getAttribute("jwt_expired");
+        String errorMessage;
+        String errorType;
+
+        if (Boolean.TRUE.equals(jwtExpired)) {
+            errorMessage = "Access token has expired. Please refresh your token or login again.";
+            errorType = "Token Expired";
+        } else {
+            errorMessage = "Full authentication is required to access this resource";
+            errorType = "Unauthorized";
+        }
+
         Map<String, Object> body = new HashMap<>();
         body.put("status", HttpServletResponse.SC_UNAUTHORIZED);
-        body.put("error", "Unauthorized");
-        body.put("message", authException.getMessage());
+        body.put("error", errorType);
+        body.put("message", errorMessage);
         body.put("path", request.getServletPath());
         body.put("timestamp", LocalDateTime.now().toString());
 

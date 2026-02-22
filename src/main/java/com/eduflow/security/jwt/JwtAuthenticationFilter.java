@@ -1,6 +1,7 @@
 package com.eduflow.security.jwt;
 
 import com.eduflow.security.CustomUserDetailsService;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,6 +50,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
+        } catch (ExpiredJwtException ex) {
+            log.error("JWT token has expired");
+            request.setAttribute("jwt_expired", true);
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);
         }
