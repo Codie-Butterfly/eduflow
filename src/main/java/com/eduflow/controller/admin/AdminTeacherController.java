@@ -33,7 +33,7 @@ public class AdminTeacherController {
         return ResponseEntity.ok(teacherService.getAllTeachers(pageable));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "Get teacher by ID", description = "Get teacher details by ID")
     public ResponseEntity<TeacherResponse> getTeacherById(@PathVariable Long id) {
         return ResponseEntity.ok(teacherService.getTeacherById(id));
@@ -51,7 +51,7 @@ public class AdminTeacherController {
         return ResponseEntity.ok(teacherService.createTeacher(request));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:\\d+}")
     @Operation(summary = "Update teacher", description = "Update an existing teacher")
     public ResponseEntity<TeacherResponse> updateTeacher(
             @PathVariable Long id,
@@ -59,7 +59,7 @@ public class AdminTeacherController {
         return ResponseEntity.ok(teacherService.updateTeacher(id, request));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     @Operation(summary = "Delete teacher", description = "Deactivate a teacher")
     public ResponseEntity<MessageResponse> deleteTeacher(@PathVariable Long id) {
         teacherService.deleteTeacher(id);
@@ -72,7 +72,7 @@ public class AdminTeacherController {
         return ResponseEntity.ok(teacherService.searchTeachers(name));
     }
 
-    @PostMapping("/{id}/subjects/{subjectId}")
+    @PostMapping("/{id:\\d+}/subjects/{subjectId:\\d+}")
     @Operation(summary = "Add subject to teacher", description = "Assign a subject to a teacher")
     public ResponseEntity<TeacherResponse> addSubjectToTeacher(
             @PathVariable Long id,
@@ -80,7 +80,7 @@ public class AdminTeacherController {
         return ResponseEntity.ok(teacherService.addSubjectToTeacher(id, subjectId));
     }
 
-    @DeleteMapping("/{id}/subjects/{subjectId}")
+    @DeleteMapping("/{id:\\d+}/subjects/{subjectId:\\d+}")
     @Operation(summary = "Remove subject from teacher", description = "Remove a subject from a teacher")
     public ResponseEntity<TeacherResponse> removeSubjectFromTeacher(
             @PathVariable Long id,
