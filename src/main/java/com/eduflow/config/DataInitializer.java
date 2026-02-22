@@ -48,6 +48,8 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void resetSequences() {
+        log.info("Starting database sequence synchronization...");
+
         List<String> tables = Arrays.asList(
                 "users", "teachers", "students", "parents", "school_classes",
                 "subjects", "enrollments", "grades", "fees", "payments",
@@ -57,20 +59,35 @@ public class DataInitializer implements CommandLineRunner {
                 "payment_transactions"
         );
 
+        int successCount = 0;
+        int skipCount = 0;
+
         for (String table : tables) {
             try {
+                // First get the current max ID
+                String maxIdSql = String.format("SELECT COALESCE(MAX(id), 0) FROM %s", table);
+                Number maxId = (Number) entityManager.createNativeQuery(maxIdSql).getSingleResult();
+
+                // Then reset the sequence
                 String sequenceName = table + "_id_seq";
-                String sql = String.format(
-                        "SELECT setval('%s', COALESCE((SELECT MAX(id) FROM %s), 0) + 1, false)",
-                        sequenceName, table
+                long newSequenceValue = maxId.longValue() + 1;
+                String resetSql = String.format(
+                        "SELECT setval('%s', %d, false)",
+                        sequenceName, newSequenceValue
                 );
-                entityManager.createNativeQuery(sql).getSingleResult();
+                Number result = (Number) entityManager.createNativeQuery(resetSql).getSingleResult();
+
+                log.info("Sequence reset: {} -> {} (max_id={}, next_val={})",
+                        sequenceName, result, maxId, newSequenceValue);
+                successCount++;
             } catch (Exception e) {
-                // Sequence might not exist for this table, skip silently
-                log.debug("Could not reset sequence for table {}: {}", table, e.getMessage());
+                log.warn("Skipped sequence for table '{}': {}", table, e.getMessage());
+                skipCount++;
             }
         }
-        log.info("Database sequences synchronized");
+
+        log.info("Database sequence synchronization completed: {} successful, {} skipped",
+                successCount, skipCount);
     }
 
     private void initializePermissions() {
