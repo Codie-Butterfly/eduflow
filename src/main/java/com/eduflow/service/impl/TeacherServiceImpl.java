@@ -87,7 +87,7 @@ public class TeacherServiceImpl implements TeacherService {
     @Override
     @Transactional(readOnly = true)
     public TeacherResponse getTeacherById(Long id) {
-        Teacher teacher = teacherRepository.findById(id)
+        Teacher teacher = teacherRepository.findByIdWithRelationships(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher", "id", id));
         return mapToResponse(teacher);
     }
@@ -95,7 +95,7 @@ public class TeacherServiceImpl implements TeacherService {
     @Override
     @Transactional(readOnly = true)
     public TeacherResponse getTeacherByEmployeeId(String employeeId) {
-        Teacher teacher = teacherRepository.findByEmployeeId(employeeId)
+        Teacher teacher = teacherRepository.findByEmployeeIdWithRelationships(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher", "employeeId", employeeId));
         return mapToResponse(teacher);
     }
@@ -103,11 +103,23 @@ public class TeacherServiceImpl implements TeacherService {
     @Override
     @Transactional(readOnly = true)
     public PagedResponse<TeacherResponse> getAllTeachers(Pageable pageable) {
-        Page<Teacher> page = teacherRepository.findAll(pageable);
-        List<TeacherResponse> content = page.getContent().stream()
-                .map(this::mapToResponse)
-                .toList();
-        return PagedResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements());
+        // Fetch all teachers with relationships to avoid LazyInitializationException
+        List<Teacher> allTeachers = teacherRepository.findAllWithRelationships();
+
+        // Manual pagination
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), allTeachers.size());
+
+        List<TeacherResponse> content;
+        if (start >= allTeachers.size()) {
+            content = List.of();
+        } else {
+            content = allTeachers.subList(start, end).stream()
+                    .map(this::mapToResponse)
+                    .toList();
+        }
+
+        return PagedResponse.of(content, pageable.getPageNumber(), pageable.getPageSize(), allTeachers.size());
     }
 
     @Override

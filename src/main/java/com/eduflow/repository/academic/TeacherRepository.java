@@ -14,7 +14,27 @@ public interface TeacherRepository extends JpaRepository<Teacher, Long> {
 
     Optional<Teacher> findByEmployeeId(String employeeId);
 
+    @Query("SELECT t FROM Teacher t " +
+            "LEFT JOIN FETCH t.user " +
+            "LEFT JOIN FETCH t.subjects " +
+            "LEFT JOIN FETCH t.assignedClasses " +
+            "WHERE t.employeeId = :employeeId")
+    Optional<Teacher> findByEmployeeIdWithRelationships(@Param("employeeId") String employeeId);
+
     Optional<Teacher> findByUserId(Long userId);
+
+    @Query("SELECT DISTINCT t FROM Teacher t " +
+            "LEFT JOIN FETCH t.user " +
+            "LEFT JOIN FETCH t.subjects " +
+            "LEFT JOIN FETCH t.assignedClasses")
+    List<Teacher> findAllWithRelationships();
+
+    @Query("SELECT t FROM Teacher t " +
+            "LEFT JOIN FETCH t.user " +
+            "LEFT JOIN FETCH t.subjects " +
+            "LEFT JOIN FETCH t.assignedClasses " +
+            "WHERE t.id = :id")
+    Optional<Teacher> findByIdWithRelationships(@Param("id") Long id);
 
     boolean existsByEmployeeId(String employeeId);
 
@@ -24,7 +44,11 @@ public interface TeacherRepository extends JpaRepository<Teacher, Long> {
     @Query("SELECT t FROM Teacher t JOIN t.assignedClasses c WHERE c.id = :classId")
     Optional<Teacher> findClassTeacher(@Param("classId") Long classId);
 
-    @Query("SELECT t FROM Teacher t WHERE LOWER(t.user.firstName) LIKE LOWER(CONCAT('%', :name, '%')) " +
+    @Query("SELECT DISTINCT t FROM Teacher t " +
+            "LEFT JOIN FETCH t.user " +
+            "LEFT JOIN FETCH t.subjects " +
+            "LEFT JOIN FETCH t.assignedClasses " +
+            "WHERE LOWER(t.user.firstName) LIKE LOWER(CONCAT('%', :name, '%')) " +
             "OR LOWER(t.user.lastName) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<Teacher> searchByName(@Param("name") String name);
 
