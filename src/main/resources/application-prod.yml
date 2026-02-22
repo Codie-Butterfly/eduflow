@@ -1,5 +1,7 @@
 server:
   port: 8099
+  servlet:
+    context-path: /api
 
 spring:
   datasource:
@@ -19,6 +21,20 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:YourSuperSecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLong}
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+
+# OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
 
 logging:
   level:
