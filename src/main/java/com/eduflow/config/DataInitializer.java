@@ -8,6 +8,8 @@ import com.eduflow.repository.finance.FeeCategoryRepository;
 import com.eduflow.repository.user.PermissionRepository;
 import com.eduflow.repository.user.RoleRepository;
 import com.eduflow.repository.user.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -31,6 +33,9 @@ public class DataInitializer implements CommandLineRunner {
     private final FeeCategoryRepository feeCategoryRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     @Override
     @Transactional
     public void run(String... args) {
@@ -38,7 +43,34 @@ public class DataInitializer implements CommandLineRunner {
         initializeRoles();
         initializeFeeCategories();
         initializeDefaultAdmin();
+        resetSequences();
         log.info("Data initialization completed");
+    }
+
+    private void resetSequences() {
+        List<String> tables = Arrays.asList(
+                "users", "teachers", "students", "parents", "school_classes",
+                "subjects", "enrollments", "grades", "fees", "payments",
+                "student_fee_assignments", "announcements", "homework",
+                "notifications", "student_reports", "roles", "permissions",
+                "fee_categories", "payment_plans", "payment_plan_installments",
+                "payment_transactions"
+        );
+
+        for (String table : tables) {
+            try {
+                String sequenceName = table + "_id_seq";
+                String sql = String.format(
+                        "SELECT setval('%s', COALESCE((SELECT MAX(id) FROM %s), 0) + 1, false)",
+                        sequenceName, table
+                );
+                entityManager.createNativeQuery(sql).getSingleResult();
+            } catch (Exception e) {
+                // Sequence might not exist for this table, skip silently
+                log.debug("Could not reset sequence for table {}: {}", table, e.getMessage());
+            }
+        }
+        log.info("Database sequences synchronized");
     }
 
     private void initializePermissions() {
