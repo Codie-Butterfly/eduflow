@@ -50,4 +50,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findStalePendingPayments(@Param("cutoffTime") LocalDateTime cutoffTime);
 
     boolean existsByTransactionRef(String transactionRef);
+
+    @Query("SELECT SUM(p.amount) FROM Payment p WHERE p.status = 'COMPLETED'")
+    BigDecimal calculateTotalCollected();
+
+    @Query("SELECT COUNT(p) FROM Payment p WHERE p.status = 'PENDING'")
+    long countPendingPayments();
 }

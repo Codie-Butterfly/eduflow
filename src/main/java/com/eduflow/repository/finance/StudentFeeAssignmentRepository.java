@@ -52,4 +52,8 @@ public interface StudentFeeAssignmentRepository extends JpaRepository<StudentFee
     List<StudentFeeAssignment> findByClassIdAndAcademicYear(
             @Param("classId") Long classId,
             @Param("academicYear") String academicYear);
+
+    @Query("SELECT COALESCE(SUM(sfa.amount - sfa.discountAmount - sfa.amountPaid), 0) FROM StudentFeeAssignment sfa " +
+            "WHERE sfa.status NOT IN ('PAID', 'WAIVED')")
+    BigDecimal calculateTotalOutstandingFees();
 }
