@@ -42,6 +42,14 @@ public class FeeServiceImpl implements FeeService {
     private final SchoolClassRepository classRepository;
 
     @Override
+    @Transactional(readOnly = true)
+    public List<StudentFeeResponse> getAllFeeAssignments() {
+        return assignmentRepository.findAll().stream()
+                .map(this::mapToStudentFeeResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public FeeResponse createFee(CreateFeeRequest request) {
         FeeCategory category = categoryRepository.findByName(request.getCategory())

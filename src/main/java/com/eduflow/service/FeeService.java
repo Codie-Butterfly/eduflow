@@ -9,6 +9,8 @@ import java.util.List;
 
 public interface FeeService {
 
+    List<StudentFeeResponse> getAllFeeAssignments();
+
     FeeResponse createFee(CreateFeeRequest request);
 
     FeeResponse getFeeById(Long id);

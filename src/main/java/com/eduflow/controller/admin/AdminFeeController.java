@@ -32,6 +32,12 @@ public class AdminFeeController {
         return ResponseEntity.ok(feeService.getAllFees());
     }
 
+    @GetMapping("/assignments")
+    @Operation(summary = "List all fee assignments", description = "Get all student fee assignments")
+    public ResponseEntity<List<StudentFeeResponse>> getAllFeeAssignments() {
+        return ResponseEntity.ok(feeService.getAllFeeAssignments());
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get fee by ID", description = "Get fee structure details")
     public ResponseEntity<FeeResponse> getFeeById(@PathVariable Long id) {
