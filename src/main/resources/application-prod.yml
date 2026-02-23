@@ -39,5 +39,6 @@ springdoc:
 logging:
   level:
     com.eduflow: INFO
+    com.eduflow.security: DEBUG
     org.springframework.security: WARN
     org.hibernate.SQL: WARN
