@@ -282,16 +282,34 @@ public class FeeServiceImpl implements FeeService {
     }
 
     private StudentFeeResponse mapToStudentFeeResponse(StudentFeeAssignment assignment) {
-        List<StudentFeeResponse.PaymentSummary> payments = assignment.getPayments().stream()
-                .map(p -> StudentFeeResponse.PaymentSummary.builder()
-                        .id(p.getId())
-                        .amount(p.getAmount())
-                        .paymentMethod(p.getPaymentMethod().name())
-                        .transactionRef(p.getTransactionRef())
-                        .status(p.getStatus().name())
-                        .paidAt(p.getPaidAt() != null ? p.getPaidAt().toString() : null)
-                        .build())
-                .collect(Collectors.toList());
+        List<StudentFeeResponse.PaymentSummary> payments = List.of();
+        if (assignment.getPayments() != null) {
+            payments = assignment.getPayments().stream()
+                    .map(p -> StudentFeeResponse.PaymentSummary.builder()
+                            .id(p.getId())
+                            .amount(p.getAmount())
+                            .paymentMethod(p.getPaymentMethod() != null ? p.getPaymentMethod().name() : null)
+                            .transactionRef(p.getTransactionRef())
+                            .status(p.getStatus() != null ? p.getStatus().name() : null)
+                            .paidAt(p.getPaidAt() != null ? p.getPaidAt().toString() : null)
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        StudentFeeResponse.StudentSummary studentSummary = null;
+        if (assignment.getStudent() != null) {
+            var student = assignment.getStudent();
+            var user = student.getUser();
+            studentSummary = StudentFeeResponse.StudentSummary.builder()
+                    .id(student.getId())
+                    .studentId(student.getStudentId())
+                    .firstName(user != null ? user.getFirstName() : null)
+                    .lastName(user != null ? user.getLastName() : null)
+                    .fullName(user != null ? user.getFullName() : null)
+                    .email(user != null ? user.getEmail() : null)
+                    .className(student.getCurrentClass() != null ? student.getCurrentClass().getName() : null)
+                    .build();
+        }
 
         Fee fee = assignment.getFee();
         return StudentFeeResponse.builder()
@@ -307,6 +325,7 @@ public class FeeServiceImpl implements FeeService {
                 .amountPaid(assignment.getAmountPaid())
                 .balance(assignment.getBalance())
                 .status(assignment.getStatus())
+                .student(studentSummary)
                 .payments(payments)
                 .build();
     }

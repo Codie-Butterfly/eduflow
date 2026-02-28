@@ -29,7 +29,22 @@ public class StudentFeeResponse {
     private BigDecimal amountPaid;
     private BigDecimal balance;
     private StudentFeeAssignment.FeeStatus status;
+    private StudentSummary student;
     private List<PaymentSummary> payments;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StudentSummary {
+        private Long id;
+        private String studentId;
+        private String firstName;
+        private String lastName;
+        private String fullName;
+        private String email;
+        private String className;
+    }
 
     @Data
     @Builder
