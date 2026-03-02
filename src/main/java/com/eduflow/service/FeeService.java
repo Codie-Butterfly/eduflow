@@ -32,4 +32,6 @@ public interface FeeService {
     StudentFeeResponse applyDiscount(Long assignmentId, java.math.BigDecimal discountAmount, String reason);
 
     StudentFeeResponse waiveFee(Long assignmentId, String reason);
+
+    List<StudentFeeResponse> getOverdueFees();
 }

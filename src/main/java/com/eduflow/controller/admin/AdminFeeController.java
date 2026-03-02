@@ -6,6 +6,7 @@ import com.eduflow.dto.response.FeeResponse;
 import com.eduflow.dto.response.MessageResponse;
 import com.eduflow.dto.response.StudentFeeResponse;
 import com.eduflow.service.FeeService;
+import com.eduflow.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -25,6 +26,7 @@ import java.util.List;
 public class AdminFeeController {
 
     private final FeeService feeService;
+    private final NotificationService notificationService;
 
     @GetMapping
     @Operation(summary = "List all fees", description = "Get all fee structures")
@@ -106,5 +108,18 @@ public class AdminFeeController {
             @PathVariable Long id,
             @RequestParam String reason) {
         return ResponseEntity.ok(feeService.waiveFee(id, reason));
+    }
+
+    @PostMapping("/overdue/notify")
+    @Operation(summary = "Send overdue notifications",
+               description = "Send notifications to parents about overdue fees for their children")
+    public ResponseEntity<MessageResponse> sendOverdueNotifications() {
+        return ResponseEntity.ok(notificationService.sendOverdueFeesNotifications());
+    }
+
+    @GetMapping("/overdue")
+    @Operation(summary = "Get overdue fees", description = "Get all overdue fee assignments")
+    public ResponseEntity<List<StudentFeeResponse>> getOverdueFees() {
+        return ResponseEntity.ok(feeService.getOverdueFees());
     }
 }

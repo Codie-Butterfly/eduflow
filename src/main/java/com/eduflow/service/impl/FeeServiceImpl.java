@@ -258,6 +258,14 @@ public class FeeServiceImpl implements FeeService {
         return mapToStudentFeeResponse(assignment);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<StudentFeeResponse> getOverdueFees() {
+        return assignmentRepository.findOverdueFees().stream()
+                .map(this::mapToStudentFeeResponse)
+                .collect(Collectors.toList());
+    }
+
     private FeeResponse mapToFeeResponse(Fee fee) {
         List<FeeResponse.ClassSummary> classes = fee.getApplicableClasses().stream()
                 .map(c -> FeeResponse.ClassSummary.builder()
