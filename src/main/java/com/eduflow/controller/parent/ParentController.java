@@ -3,9 +3,11 @@ package com.eduflow.controller.parent;
 import com.eduflow.dto.request.CreatePaymentRequest;
 import com.eduflow.dto.response.*;
 import com.eduflow.entity.academic.Parent;
+import com.eduflow.entity.academic.Student;
 import com.eduflow.exception.ResourceNotFoundException;
 import com.eduflow.repository.academic.ParentRepository;
 import com.eduflow.repository.communication.NotificationRepository;
+import com.eduflow.repository.finance.StudentFeeAssignmentRepository;
 import com.eduflow.service.FeeService;
 import com.eduflow.service.PaymentService;
 import com.eduflow.service.StudentService;
@@ -21,7 +23,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/v1/parent")
@@ -35,6 +40,44 @@ public class ParentController {
     private final PaymentService paymentService;
     private final ParentRepository parentRepository;
     private final NotificationRepository notificationRepository;
+    private final StudentFeeAssignmentRepository feeAssignmentRepository;
+
+    @GetMapping("/dashboard")
+    @Operation(summary = "Get parent dashboard", description = "Get dashboard summary for parent")
+    public ResponseEntity<Map<String, Object>> getDashboard(@AuthenticationPrincipal UserDetails userDetails) {
+        Parent parent = getParentFromUser(userDetails);
+        List<Student> children = parent.getChildren().stream().toList();
+
+        int totalChildren = children.size();
+        BigDecimal totalFeesDue = BigDecimal.ZERO;
+        BigDecimal totalFeesPaid = BigDecimal.ZERO;
+        int overdueCount = 0;
+
+        for (Student child : children) {
+            var fees = feeAssignmentRepository.findByStudentId(child.getId());
+            for (var fee : fees) {
+                totalFeesDue = totalFeesDue.add(fee.getNetAmount());
+                totalFeesPaid = totalFeesPaid.add(fee.getAmountPaid());
+                if (fee.getDueDate() != null && fee.getDueDate().isBefore(java.time.LocalDate.now())
+                        && fee.getBalance().compareTo(BigDecimal.ZERO) > 0) {
+                    overdueCount++;
+                }
+            }
+        }
+
+        BigDecimal outstandingBalance = totalFeesDue.subtract(totalFeesPaid);
+        long unreadNotifications = notificationRepository.countUnreadByRecipientId(parent.getUser().getId());
+
+        Map<String, Object> dashboard = new HashMap<>();
+        dashboard.put("totalChildren", totalChildren);
+        dashboard.put("totalFeesDue", totalFeesDue);
+        dashboard.put("totalFeesPaid", totalFeesPaid);
+        dashboard.put("outstandingBalance", outstandingBalance);
+        dashboard.put("overdueCount", overdueCount);
+        dashboard.put("unreadNotifications", unreadNotifications);
+
+        return ResponseEntity.ok(dashboard);
+    }
 
     @GetMapping("/children")
     @Operation(summary = "Get children", description = "Get all children associated with the parent")
@@ -111,8 +154,8 @@ public class ParentController {
     }
 
     private Parent getParentFromUser(UserDetails userDetails) {
-        return parentRepository.findByUserId(getUserIdFromEmail(userDetails.getUsername()))
-                .orElseThrow(() -> new ResourceNotFoundException("Parent profile not found"));
+        return parentRepository.findByUserEmail(userDetails.getUsername())
+                .orElseThrow(() -> new ResourceNotFoundException("Parent", "email", userDetails.getUsername()));
     }
 
     private void verifyParentAccessToStudent(UserDetails userDetails, Long studentId) {
@@ -122,11 +165,5 @@ public class ParentController {
         if (!hasAccess) {
             throw new ResourceNotFoundException("Student not found or access denied");
         }
-    }
-
-    private Long getUserIdFromEmail(String email) {
-        // This would typically be retrieved from a service or the authentication principal
-        // For now, we assume the parent lookup handles this
-        return null; // The repository method will handle the lookup
     }
 }

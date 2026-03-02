@@ -20,4 +20,7 @@ public interface ParentRepository extends JpaRepository<Parent, Long> {
 
     @Query("SELECT p FROM Parent p JOIN p.children s WHERE s.currentClass.id = :classId")
     List<Parent> findByChildrenClassId(@Param("classId") Long classId);
+
+    @Query("SELECT p FROM Parent p WHERE p.user.email = :email")
+    Optional<Parent> findByUserEmail(@Param("email") String email);
 }
