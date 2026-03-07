@@ -22,7 +22,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Admin - Teachers", description = "Teacher management endpoints")
-public class AdminTeacherController {1
+public class AdminTeacherController {
     private final TeacherService teacherService;
 
     @GetMapping
