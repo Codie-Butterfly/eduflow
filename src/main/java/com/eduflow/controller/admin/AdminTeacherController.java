@@ -19,7 +19,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/v1/admin/staff/teachers")
-@RequiredArgsConstructor
+@RequiredArgsConstructorhave
 @PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Admin - Teachers", description = "Teacher management endpoints")
 public class AdminTeacherController {

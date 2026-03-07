@@ -32,6 +32,20 @@ public class StudentResponse {
     private ClassSummary currentClass;
     private ParentSummary parent;
 
+    // Fee summary for parent portal
+    private FeeSummary feeSummary;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class FeeSummary {
+        private java.math.BigDecimal totalFees;
+        private java.math.BigDecimal totalPaid;
+        private java.math.BigDecimal balance;
+        private int pendingFees;
+    }
+
     @Data
     @Builder
     @NoArgsConstructor

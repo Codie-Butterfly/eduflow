@@ -80,10 +80,44 @@ public class ParentController {
     }
 
     @GetMapping("/children")
-    @Operation(summary = "Get children", description = "Get all children associated with the parent")
+    @Operation(summary = "Get children", description = "Get all children associated with the parent with fee summaries")
     public ResponseEntity<List<StudentResponse>> getChildren(@AuthenticationPrincipal UserDetails userDetails) {
         Parent parent = getParentFromUser(userDetails);
-        return ResponseEntity.ok(studentService.getStudentsByParentId(parent.getId()));
+        List<StudentResponse> children = studentService.getStudentsByParentId(parent.getId());
+
+        // Enrich each child with fee summary
+        for (StudentResponse child : children) {
+            var fees = feeAssignmentRepository.findByStudentId(child.getId());
+            BigDecimal totalFees = BigDecimal.ZERO;
+            BigDecimal totalPaid = BigDecimal.ZERO;
+            int pendingCount = 0;
+
+            for (var fee : fees) {
+                totalFees = totalFees.add(fee.getNetAmount());
+                totalPaid = totalPaid.add(fee.getAmountPaid());
+                if (fee.getBalance().compareTo(BigDecimal.ZERO) > 0) {
+                    pendingCount++;
+                }
+            }
+
+            child.setFeeSummary(StudentResponse.FeeSummary.builder()
+                    .totalFees(totalFees)
+                    .totalPaid(totalPaid)
+                    .balance(totalFees.subtract(totalPaid))
+                    .pendingFees(pendingCount)
+                    .build());
+        }
+
+        return ResponseEntity.ok(children);
+    }
+
+    @GetMapping("/children/{studentId}")
+    @Operation(summary = "Get child details", description = "Get details of a specific child")
+    public ResponseEntity<StudentResponse> getChildById(
+            @PathVariable Long studentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        verifyParentAccessToStudent(userDetails, studentId);
+        return ResponseEntity.ok(studentService.getStudentById(studentId));
     }
 
     @GetMapping("/children/{studentId}/fees")
