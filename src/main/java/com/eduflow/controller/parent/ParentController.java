@@ -7,6 +7,7 @@ import com.eduflow.entity.academic.Student;
 import com.eduflow.exception.ResourceNotFoundException;
 import com.eduflow.repository.academic.ParentRepository;
 import com.eduflow.repository.communication.NotificationRepository;
+import com.eduflow.repository.finance.PaymentRepository;
 import com.eduflow.repository.finance.StudentFeeAssignmentRepository;
 import com.eduflow.service.FeeService;
 import com.eduflow.service.PaymentService;
@@ -41,6 +42,7 @@ public class ParentController {
     private final ParentRepository parentRepository;
     private final NotificationRepository notificationRepository;
     private final StudentFeeAssignmentRepository feeAssignmentRepository;
+    private final PaymentRepository paymentRepository;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Get parent dashboard", description = "Get dashboard summary for parent")
@@ -57,12 +59,16 @@ public class ParentController {
             var fees = feeAssignmentRepository.findByStudentId(child.getId());
             for (var fee : fees) {
                 totalFeesDue = totalFeesDue.add(fee.getNetAmount());
-                totalFeesPaid = totalFeesPaid.add(fee.getAmountPaid());
+                // Calculate actual payments for this fee
+                BigDecimal feePaid = paymentRepository.calculateTotalPaidByFeeAssignmentId(fee.getId());
+                BigDecimal feeBalance = fee.getNetAmount().subtract(feePaid);
                 if (fee.getDueDate() != null && fee.getDueDate().isBefore(java.time.LocalDate.now())
-                        && fee.getBalance().compareTo(BigDecimal.ZERO) > 0) {
+                        && feeBalance.compareTo(BigDecimal.ZERO) > 0) {
                     overdueCount++;
                 }
             }
+            // Get actual completed payments for this student
+            totalFeesPaid = totalFeesPaid.add(paymentRepository.calculateTotalPaidByStudentId(child.getId()));
         }
 
         BigDecimal outstandingBalance = totalFeesDue.subtract(totalFeesPaid);
@@ -85,17 +91,24 @@ public class ParentController {
         Parent parent = getParentFromUser(userDetails);
         List<StudentResponse> children = studentService.getStudentsByParentId(parent.getId());
 
-        // Enrich each child with fee summary
+        // Enrich each child with fee summary using actual payment data
         for (StudentResponse child : children) {
             var fees = feeAssignmentRepository.findByStudentId(child.getId());
             BigDecimal totalFees = BigDecimal.ZERO;
-            BigDecimal totalPaid = BigDecimal.ZERO;
-            int pendingCount = 0;
 
             for (var fee : fees) {
                 totalFees = totalFees.add(fee.getNetAmount());
-                totalPaid = totalPaid.add(fee.getAmountPaid());
-                if (fee.getBalance().compareTo(BigDecimal.ZERO) > 0) {
+            }
+
+            // Get actual completed payments for this student
+            BigDecimal totalPaid = paymentRepository.calculateTotalPaidByStudentId(child.getId());
+            BigDecimal balance = totalFees.subtract(totalPaid);
+
+            // Count pending fees (where balance > 0)
+            int pendingCount = 0;
+            for (var fee : fees) {
+                BigDecimal feePaid = paymentRepository.calculateTotalPaidByFeeAssignmentId(fee.getId());
+                if (fee.getNetAmount().subtract(feePaid).compareTo(BigDecimal.ZERO) > 0) {
                     pendingCount++;
                 }
             }
@@ -103,7 +116,7 @@ public class ParentController {
             child.setFeeSummary(StudentResponse.FeeSummary.builder()
                     .totalFees(totalFees)
                     .totalPaid(totalPaid)
-                    .balance(totalFees.subtract(totalPaid))
+                    .balance(balance)
                     .pendingFees(pendingCount)
                     .build());
         }
