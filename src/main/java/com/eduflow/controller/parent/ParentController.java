@@ -153,13 +153,25 @@ public class ParentController {
     }
 
     @GetMapping("/children/{studentId}/payments")
-    @Operation(summary = "Get payment history", description = "Get payment history for a specific child")
-    public ResponseEntity<PagedResponse<PaymentResponse>> getPaymentHistory(
+    @Operation(summary = "Get payment history for child", description = "Get payment history for a specific child")
+    public ResponseEntity<PagedResponse<PaymentResponse>> getChildPaymentHistory(
             @PathVariable Long studentId,
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal UserDetails userDetails) {
         verifyParentAccessToStudent(userDetails, studentId);
         return ResponseEntity.ok(paymentService.getPaymentsByStudentId(studentId, pageable));
+    }
+
+    @GetMapping("/payments")
+    @Operation(summary = "Get all payments", description = "Get payment history for all children")
+    public ResponseEntity<PagedResponse<PaymentResponse>> getAllPayments(
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Parent parent = getParentFromUser(userDetails);
+        List<Long> childIds = parent.getChildren().stream()
+                .map(Student::getId)
+                .toList();
+        return ResponseEntity.ok(paymentService.getPaymentsByStudentIds(childIds, pageable));
     }
 
     @PostMapping("/payments")

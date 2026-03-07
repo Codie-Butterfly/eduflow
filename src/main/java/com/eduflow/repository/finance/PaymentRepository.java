@@ -25,6 +25,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("SELECT p FROM Payment p WHERE p.studentFeeAssignment.student.id = :studentId")
     Page<Payment> findByStudentId(@Param("studentId") Long studentId, Pageable pageable);
 
+    @Query("SELECT p FROM Payment p WHERE p.studentFeeAssignment.student.id IN :studentIds ORDER BY p.createdAt DESC")
+    Page<Payment> findByStudentIds(@Param("studentIds") List<Long> studentIds, Pageable pageable);
+
     @Query("SELECT p FROM Payment p WHERE p.status = :status")
     Page<Payment> findByStatus(@Param("status") Payment.PaymentStatus status, Pageable pageable);
 

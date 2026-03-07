@@ -128,6 +128,19 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
+    public PagedResponse<PaymentResponse> getPaymentsByStudentIds(List<Long> studentIds, Pageable pageable) {
+        if (studentIds == null || studentIds.isEmpty()) {
+            return PagedResponse.of(List.of(), 0, pageable.getPageSize(), 0);
+        }
+        Page<Payment> page = paymentRepository.findByStudentIds(studentIds, pageable);
+        List<PaymentResponse> content = page.getContent().stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+        return PagedResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public PagedResponse<PaymentResponse> getPaymentsByStatus(Payment.PaymentStatus status, Pageable pageable) {
         Page<Payment> page = paymentRepository.findByStatus(status, pageable);
         List<PaymentResponse> content = page.getContent().stream()

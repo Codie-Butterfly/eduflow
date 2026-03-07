@@ -18,6 +18,8 @@ public interface PaymentService {
 
     PagedResponse<PaymentResponse> getPaymentsByStudentId(Long studentId, Pageable pageable);
 
+    PagedResponse<PaymentResponse> getPaymentsByStudentIds(List<Long> studentIds, Pageable pageable);
+
     PagedResponse<PaymentResponse> getPaymentsByStatus(Payment.PaymentStatus status, Pageable pageable);
 
     List<PaymentResponse> getPaymentsByFeeAssignment(Long feeAssignmentId);
