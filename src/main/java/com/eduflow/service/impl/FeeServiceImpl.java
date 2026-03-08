@@ -16,6 +16,7 @@ import com.eduflow.repository.academic.SchoolClassRepository;
 import com.eduflow.repository.academic.StudentRepository;
 import com.eduflow.repository.finance.FeeCategoryRepository;
 import com.eduflow.repository.finance.FeeRepository;
+import com.eduflow.repository.finance.PaymentRepository;
 import com.eduflow.repository.finance.StudentFeeAssignmentRepository;
 import com.eduflow.service.FeeService;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ public class FeeServiceImpl implements FeeService {
     private final StudentFeeAssignmentRepository assignmentRepository;
     private final StudentRepository studentRepository;
     private final SchoolClassRepository classRepository;
+    private final PaymentRepository paymentRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -319,6 +321,24 @@ public class FeeServiceImpl implements FeeService {
                     .build();
         }
 
+        // Calculate amountPaid from actual COMPLETED payments instead of cached field
+        BigDecimal actualAmountPaid = paymentRepository.calculateTotalPaidByFeeAssignmentId(assignment.getId());
+        BigDecimal actualBalance = assignment.getNetAmount().subtract(actualAmountPaid);
+
+        // Determine status based on actual payments
+        StudentFeeAssignment.FeeStatus actualStatus = assignment.getStatus();
+        if (actualAmountPaid.compareTo(BigDecimal.ZERO) == 0) {
+            if (assignment.getDueDate() != null && assignment.getDueDate().isBefore(java.time.LocalDate.now())) {
+                actualStatus = StudentFeeAssignment.FeeStatus.OVERDUE;
+            } else {
+                actualStatus = StudentFeeAssignment.FeeStatus.PENDING;
+            }
+        } else if (actualBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            actualStatus = StudentFeeAssignment.FeeStatus.PAID;
+        } else {
+            actualStatus = StudentFeeAssignment.FeeStatus.PARTIAL;
+        }
+
         Fee fee = assignment.getFee();
         return StudentFeeResponse.builder()
                 .id(assignment.getId())
@@ -330,9 +350,9 @@ public class FeeServiceImpl implements FeeService {
                 .discountAmount(assignment.getDiscountAmount())
                 .discountReason(assignment.getDiscountReason())
                 .netAmount(assignment.getNetAmount())
-                .amountPaid(assignment.getAmountPaid())
-                .balance(assignment.getBalance())
-                .status(assignment.getStatus())
+                .amountPaid(actualAmountPaid)
+                .balance(actualBalance)
+                .status(actualStatus)
                 .student(studentSummary)
                 .payments(payments)
                 .build();
