@@ -37,8 +37,10 @@ public interface StudentFeeAssignmentRepository extends JpaRepository<StudentFee
             @Param("studentId") Long studentId,
             @Param("academicYear") String academicYear);
 
-    @Query("SELECT SUM(sfa.amountPaid) FROM StudentFeeAssignment sfa " +
-            "WHERE sfa.student.id = :studentId AND sfa.academicYear = :academicYear")
+    @Query(value = "SELECT COALESCE(SUM(p.amount), 0) FROM payments p " +
+            "JOIN student_fee_assignments sfa ON p.student_fee_assignment_id = sfa.id " +
+            "WHERE p.status = 'COMPLETED' AND sfa.student_id = :studentId AND sfa.academic_year = :academicYear",
+            nativeQuery = true)
     BigDecimal calculateTotalPaidByStudentAndYear(
             @Param("studentId") Long studentId,
             @Param("academicYear") String academicYear);
@@ -53,7 +55,11 @@ public interface StudentFeeAssignmentRepository extends JpaRepository<StudentFee
             @Param("classId") Long classId,
             @Param("academicYear") String academicYear);
 
-    @Query("SELECT COALESCE(SUM(sfa.amount - sfa.discountAmount - sfa.amountPaid), 0) FROM StudentFeeAssignment sfa " +
-            "WHERE sfa.status NOT IN ('PAID', 'WAIVED')")
+    @Query(value = "SELECT COALESCE(" +
+            "(SELECT SUM(sfa.amount - sfa.discount_amount) FROM student_fee_assignments sfa WHERE sfa.status NOT IN ('PAID', 'WAIVED')) - " +
+            "(SELECT COALESCE(SUM(p.amount), 0) FROM payments p " +
+            "JOIN student_fee_assignments sfa ON p.student_fee_assignment_id = sfa.id " +
+            "WHERE p.status = 'COMPLETED' AND sfa.status NOT IN ('PAID', 'WAIVED')), 0)",
+            nativeQuery = true)
     BigDecimal calculateTotalOutstandingFees();
 }
