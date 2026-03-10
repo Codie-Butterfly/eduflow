@@ -1,8 +1,10 @@
 package com.eduflow.controller.admin;
 
+import com.eduflow.dto.response.MessageResponse;
 import com.eduflow.dto.response.PagedResponse;
 import com.eduflow.dto.response.PaymentResponse;
 import com.eduflow.entity.finance.Payment;
+import com.eduflow.service.NotificationService;
 import com.eduflow.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminPaymentController {
 
     private final PaymentService paymentService;
+    private final NotificationService notificationService;
 
     @GetMapping
     @Operation(summary = "List all payments", description = "Get paginated list of all payments")
@@ -35,5 +38,27 @@ public class AdminPaymentController {
             @PathVariable Payment.PaymentStatus status,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(paymentService.getPaymentsByStatus(status, pageable));
+    }
+
+    @PostMapping("/reminders/overdue")
+    @Operation(summary = "Send overdue payment reminders",
+               description = "Send notifications to parents about overdue fee payments")
+    public ResponseEntity<MessageResponse> sendOverdueReminders() {
+        return ResponseEntity.ok(notificationService.sendOverdueFeesNotifications());
+    }
+
+    @PostMapping("/reminders/upcoming")
+    @Operation(summary = "Send upcoming payment reminders",
+               description = "Send notifications to parents about fees due within specified days")
+    public ResponseEntity<MessageResponse> sendUpcomingReminders(
+            @RequestParam(defaultValue = "7") int daysBeforeDue) {
+        return ResponseEntity.ok(notificationService.sendUpcomingFeesNotifications(daysBeforeDue));
+    }
+
+    @PostMapping("/reminders/student/{studentId}")
+    @Operation(summary = "Send payment reminder for specific student",
+               description = "Send payment reminder to parent of a specific student")
+    public ResponseEntity<MessageResponse> sendStudentReminder(@PathVariable Long studentId) {
+        return ResponseEntity.ok(notificationService.sendPaymentReminderForStudent(studentId));
     }
 }

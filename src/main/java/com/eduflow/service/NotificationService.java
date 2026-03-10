@@ -15,6 +15,10 @@ public interface NotificationService {
 
     MessageResponse sendOverdueFeesNotifications();
 
+    MessageResponse sendUpcomingFeesNotifications(int daysBeforeDue);
+
+    MessageResponse sendPaymentReminderForStudent(Long studentId);
+
     List<Notification> getUnreadNotifications(Long userId);
 
     void markAsRead(Long notificationId);
