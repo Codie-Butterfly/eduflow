@@ -60,11 +60,12 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("SELECT COUNT(p) FROM Payment p WHERE p.status = 'PENDING'")
     long countPendingPayments();
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = 'COMPLETED' " +
-            "AND p.studentFeeAssignment.student.id = :studentId")
+    @Query(value = "SELECT COALESCE(SUM(p.amount), 0) FROM payments p " +
+            "JOIN student_fee_assignments sfa ON p.student_fee_assignment_id = sfa.id " +
+            "WHERE p.status = 'COMPLETED' AND sfa.student_id = :studentId", nativeQuery = true)
     BigDecimal calculateTotalPaidByStudentId(@Param("studentId") Long studentId);
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = 'COMPLETED' " +
-            "AND p.studentFeeAssignment.id = :feeAssignmentId")
+    @Query(value = "SELECT COALESCE(SUM(p.amount), 0) FROM payments p " +
+            "WHERE p.status = 'COMPLETED' AND p.student_fee_assignment_id = :feeAssignmentId", nativeQuery = true)
     BigDecimal calculateTotalPaidByFeeAssignmentId(@Param("feeAssignmentId") Long feeAssignmentId);
 }
