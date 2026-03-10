@@ -14,6 +14,8 @@ public interface PaymentService {
 
     PaymentResponse getPaymentById(Long id);
 
+    PagedResponse<PaymentResponse> getAllPayments(Pageable pageable);
+
     PaymentResponse getPaymentByTransactionRef(String transactionRef);
 
     PagedResponse<PaymentResponse> getPaymentsByStudentId(Long studentId, Pageable pageable);

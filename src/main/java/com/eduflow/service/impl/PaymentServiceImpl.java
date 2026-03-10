@@ -118,6 +118,16 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
+    public PagedResponse<PaymentResponse> getAllPayments(Pageable pageable) {
+        Page<Payment> page = paymentRepository.findAll(pageable);
+        List<PaymentResponse> content = page.getContent().stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+        return PagedResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public PagedResponse<PaymentResponse> getPaymentsByStudentId(Long studentId, Pageable pageable) {
         Page<Payment> page = paymentRepository.findByStudentId(studentId, pageable);
         List<PaymentResponse> content = page.getContent().stream()
@@ -235,17 +245,30 @@ public class PaymentServiceImpl implements PaymentService {
     private PaymentResponse mapToPaymentResponse(Payment payment) {
         StudentFeeAssignment assignment = payment.getStudentFeeAssignment();
 
-        PaymentResponse.StudentInfo studentInfo = PaymentResponse.StudentInfo.builder()
-                .id(assignment.getStudent().getId())
-                .studentId(assignment.getStudent().getStudentId())
-                .name(assignment.getStudent().getUser().getFullName())
-                .build();
+        PaymentResponse.StudentInfo studentInfo = null;
+        PaymentResponse.FeeInfo feeInfo = null;
 
-        PaymentResponse.FeeInfo feeInfo = PaymentResponse.FeeInfo.builder()
-                .id(assignment.getFee().getId())
-                .name(assignment.getFee().getName())
-                .category(assignment.getFee().getCategory().getName().name())
-                .build();
+        if (assignment != null) {
+            if (assignment.getStudent() != null && assignment.getStudent().getUser() != null) {
+                studentInfo = PaymentResponse.StudentInfo.builder()
+                        .id(assignment.getStudent().getId())
+                        .studentId(assignment.getStudent().getStudentId())
+                        .name(assignment.getStudent().getUser().getFullName())
+                        .build();
+            }
+
+            if (assignment.getFee() != null) {
+                String category = null;
+                if (assignment.getFee().getCategory() != null && assignment.getFee().getCategory().getName() != null) {
+                    category = assignment.getFee().getCategory().getName().name();
+                }
+                feeInfo = PaymentResponse.FeeInfo.builder()
+                        .id(assignment.getFee().getId())
+                        .name(assignment.getFee().getName())
+                        .category(category)
+                        .build();
+            }
+        }
 
         return PaymentResponse.builder()
                 .id(payment.getId())
