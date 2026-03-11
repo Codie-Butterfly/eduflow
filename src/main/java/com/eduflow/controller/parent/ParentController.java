@@ -4,8 +4,12 @@ import com.eduflow.dto.request.CreatePaymentRequest;
 import com.eduflow.dto.response.*;
 import com.eduflow.entity.academic.Parent;
 import com.eduflow.entity.academic.Student;
+import com.eduflow.entity.communication.Announcement;
+import com.eduflow.entity.communication.AnnouncementRead;
 import com.eduflow.exception.ResourceNotFoundException;
 import com.eduflow.repository.academic.ParentRepository;
+import com.eduflow.repository.communication.AnnouncementReadRepository;
+import com.eduflow.repository.communication.AnnouncementRepository;
 import com.eduflow.repository.communication.NotificationRepository;
 import com.eduflow.repository.finance.PaymentRepository;
 import com.eduflow.repository.finance.StudentFeeAssignmentRepository;
@@ -16,6 +20,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -25,9 +30,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v1/parent")
@@ -43,6 +50,8 @@ public class ParentController {
     private final NotificationRepository notificationRepository;
     private final StudentFeeAssignmentRepository feeAssignmentRepository;
     private final PaymentRepository paymentRepository;
+    private final AnnouncementRepository announcementRepository;
+    private final AnnouncementReadRepository announcementReadRepository;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Get parent dashboard", description = "Get dashboard summary for parent")
@@ -210,6 +219,72 @@ public class ParentController {
         return ResponseEntity.ok(
                 notificationRepository.countUnreadByRecipientId(parent.getUser().getId())
         );
+    }
+
+    // Announcement endpoints
+    @GetMapping("/announcements")
+    @Operation(summary = "Get announcements", description = "Get all announcements for parents")
+    public ResponseEntity<PagedResponse<AnnouncementResponse>> getAnnouncements(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Parent parent = getParentFromUser(userDetails);
+        Long userId = parent.getUser().getId();
+
+        // Get announcements targeted to ALL or PARENTS
+        Page<Announcement> page = announcementRepository.findByTargetType(
+                Announcement.TargetType.PARENTS, pageable);
+
+        List<Long> readIds = announcementReadRepository.findReadAnnouncementIdsByUserId(userId);
+
+        List<AnnouncementResponse> content = page.getContent().stream()
+                .map(a -> mapToAnnouncementResponse(a, readIds.contains(a.getId())))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(PagedResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements()));
+    }
+
+    @GetMapping("/announcements/unread-count")
+    @Operation(summary = "Get unread announcements count", description = "Get count of unread announcements")
+    public ResponseEntity<Long> getUnreadAnnouncementCount(@AuthenticationPrincipal UserDetails userDetails) {
+        Parent parent = getParentFromUser(userDetails);
+        return ResponseEntity.ok(announcementReadRepository.countUnreadByUserId(parent.getUser().getId()));
+    }
+
+    @PostMapping("/announcements/{id}/read")
+    @Operation(summary = "Mark announcement as read", description = "Mark a specific announcement as read")
+    public ResponseEntity<MessageResponse> markAnnouncementAsRead(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Parent parent = getParentFromUser(userDetails);
+
+        Announcement announcement = announcementRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Announcement", "id", id));
+
+        // Check if already read
+        if (!announcementReadRepository.existsByAnnouncementIdAndUserId(id, parent.getUser().getId())) {
+            AnnouncementRead read = AnnouncementRead.builder()
+                    .announcement(announcement)
+                    .user(parent.getUser())
+                    .readAt(LocalDateTime.now())
+                    .build();
+            announcementReadRepository.save(read);
+        }
+
+        return ResponseEntity.ok(MessageResponse.success("Announcement marked as read"));
+    }
+
+    private AnnouncementResponse mapToAnnouncementResponse(Announcement announcement, boolean read) {
+        return AnnouncementResponse.builder()
+                .id(announcement.getId())
+                .title(announcement.getTitle())
+                .content(announcement.getContent())
+                .priority(announcement.getPriority() != null ? announcement.getPriority().name() : null)
+                .publishedAt(announcement.getPublishedAt())
+                .expiresAt(announcement.getExpiresAt())
+                .attachments(announcement.getAttachments())
+                .read(read)
+                .senderName(announcement.getSender() != null ? announcement.getSender().getFullName() : null)
+                .build();
     }
 
     private Parent getParentFromUser(UserDetails userDetails) {
