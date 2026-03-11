@@ -22,4 +22,9 @@ public class AnnouncementResponse {
     private List<String> attachments;
     private boolean read;
     private String senderName;
+    // Admin fields
+    private String status;
+    private String targetType;
+    private LocalDateTime scheduledAt;
+    private LocalDateTime createdAt;
 }
