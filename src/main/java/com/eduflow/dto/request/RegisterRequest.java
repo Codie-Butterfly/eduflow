@@ -32,4 +32,7 @@ public class RegisterRequest {
 
     @NotBlank(message = "Role is required")
     private String role;
+
+    // Required for PARENT registration - the child's student ID
+    private String studentId;
 }

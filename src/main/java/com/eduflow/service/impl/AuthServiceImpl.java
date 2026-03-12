@@ -105,7 +105,7 @@ public class AuthServiceImpl implements AuthService {
         user = userRepository.save(user);
 
         // Create corresponding entity based on role
-        createRoleSpecificEntity(user, roleName);
+        createRoleSpecificEntity(user, roleName, request.getStudentId());
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -223,7 +223,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    private void createRoleSpecificEntity(User user, Role.RoleName roleName) {
+    private void createRoleSpecificEntity(User user, Role.RoleName roleName, String childStudentId) {
         switch (roleName) {
             case TEACHER -> {
                 String employeeId = generateEmployeeId();
@@ -247,11 +247,30 @@ public class AuthServiceImpl implements AuthService {
                 log.info("Student profile created for user: {} with studentId: {}", user.getEmail(), studentId);
             }
             case PARENT -> {
+                // For parent registration, we need to link to an existing student
+                if (childStudentId == null || childStudentId.isBlank()) {
+                    throw new BadRequestException("Student ID is required for parent registration");
+                }
+
+                Student child = studentRepository.findByStudentId(childStudentId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Student", "studentId", childStudentId));
+
+                // Check if student already has a parent
+                if (child.getParent() != null) {
+                    throw new BadRequestException("This student is already linked to a parent account");
+                }
+
                 Parent parent = Parent.builder()
                         .user(user)
                         .build();
-                parentRepository.save(parent);
-                log.info("Parent profile created for user: {}", user.getEmail());
+                parent = parentRepository.save(parent);
+
+                // Link the child to the parent
+                child.setParent(parent);
+                studentRepository.save(child);
+
+                log.info("Parent profile created for user: {} and linked to student: {}",
+                        user.getEmail(), childStudentId);
             }
             default -> {
                 // ADMIN doesn't need a separate entity
