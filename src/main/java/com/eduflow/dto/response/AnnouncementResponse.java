@@ -25,6 +25,9 @@ public class AnnouncementResponse {
     // Admin fields
     private String status;
     private String targetType;
+    private List<Long> targetClassIds;
+    private List<Long> targetUserIds;
+    private List<Integer> targetGrades;
     private LocalDateTime scheduledAt;
     private LocalDateTime createdAt;
 }

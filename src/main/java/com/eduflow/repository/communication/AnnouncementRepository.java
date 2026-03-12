@@ -35,12 +35,12 @@ public interface AnnouncementRepository extends JpaRepository<Announcement, Long
     @Query("SELECT a FROM Announcement a WHERE a.status = 'PUBLISHED' AND a.expiresAt < :now")
     List<Announcement> findExpiredAnnouncements(@Param("now") LocalDateTime now);
 
-    // Find announcements for parents - includes ALL, PARENTS, and CLASS-targeted for their children's classes
+    // Find announcements for parents - includes ALL, PARENTS, CLASS-targeted, and user-specific
     @Query("SELECT DISTINCT a FROM Announcement a WHERE a.status = 'PUBLISHED' " +
             "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
             "AND (a.targetType = 'ALL' OR a.targetType = 'PARENTS' " +
-            "OR (a.targetType = 'CLASS' AND EXISTS (SELECT 1 FROM a.targetIds t WHERE t IN :classIds)) " +
-            "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetIds t WHERE t = :userId))) " +
+            "OR (a.targetType = 'CLASS' AND EXISTS (SELECT 1 FROM a.targetClassIds c WHERE c IN :classIds)) " +
+            "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetUserIds u WHERE u = :userId))) " +
             "ORDER BY a.priority DESC, a.publishedAt DESC")
     Page<Announcement> findAnnouncementsForParent(@Param("classIds") List<Long> classIds,
                                                    @Param("userId") Long userId,
@@ -50,7 +50,7 @@ public interface AnnouncementRepository extends JpaRepository<Announcement, Long
     @Query("SELECT DISTINCT a FROM Announcement a WHERE a.status = 'PUBLISHED' " +
             "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
             "AND (a.targetType = 'ALL' OR a.targetType = 'TEACHERS' " +
-            "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetIds t WHERE t = :userId))) " +
+            "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetUserIds u WHERE u = :userId))) " +
             "ORDER BY a.priority DESC, a.publishedAt DESC")
     Page<Announcement> findAnnouncementsForTeacher(@Param("userId") Long userId, Pageable pageable);
 
@@ -58,8 +58,8 @@ public interface AnnouncementRepository extends JpaRepository<Announcement, Long
     @Query("SELECT COUNT(DISTINCT a) FROM Announcement a WHERE a.status = 'PUBLISHED' " +
             "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
             "AND (a.targetType = 'ALL' OR a.targetType = 'PARENTS' " +
-            "OR (a.targetType = 'CLASS' AND EXISTS (SELECT 1 FROM a.targetIds t WHERE t IN :classIds)) " +
-            "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetIds t WHERE t = :userId))) " +
+            "OR (a.targetType = 'CLASS' AND EXISTS (SELECT 1 FROM a.targetClassIds c WHERE c IN :classIds)) " +
+            "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetUserIds u WHERE u = :userId))) " +
             "AND a.id NOT IN (SELECT ar.announcement.id FROM AnnouncementRead ar WHERE ar.user.id = :userId)")
     long countUnreadForParent(@Param("classIds") List<Long> classIds, @Param("userId") Long userId);
 }

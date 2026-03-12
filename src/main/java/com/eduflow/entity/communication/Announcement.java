@@ -32,11 +32,26 @@ public class Announcement extends BaseEntity {
     @Column(name = "target_type", nullable = false)
     private TargetType targetType;
 
+    // For CLASS targeting - stores class IDs
     @ElementCollection
-    @CollectionTable(name = "announcement_targets", joinColumns = @JoinColumn(name = "announcement_id"))
-    @Column(name = "target_id")
+    @CollectionTable(name = "announcement_target_classes", joinColumns = @JoinColumn(name = "announcement_id"))
+    @Column(name = "class_id")
     @Builder.Default
-    private List<Long> targetIds = new ArrayList<>();
+    private List<Long> targetClassIds = new ArrayList<>();
+
+    // For SPECIFIC_USERS targeting - stores user IDs
+    @ElementCollection
+    @CollectionTable(name = "announcement_target_users", joinColumns = @JoinColumn(name = "announcement_id"))
+    @Column(name = "user_id")
+    @Builder.Default
+    private List<Long> targetUserIds = new ArrayList<>();
+
+    // For GRADE targeting - stores grade numbers (e.g., 1, 2, 3)
+    @ElementCollection
+    @CollectionTable(name = "announcement_target_grades", joinColumns = @JoinColumn(name = "announcement_id"))
+    @Column(name = "grade")
+    @Builder.Default
+    private List<Integer> targetGrades = new ArrayList<>();
 
     @ElementCollection
     @CollectionTable(name = "announcement_attachments", joinColumns = @JoinColumn(name = "announcement_id"))

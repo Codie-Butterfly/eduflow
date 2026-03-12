@@ -82,7 +82,9 @@ public class AdminAnnouncementController {
                 .title(request.getTitle())
                 .content(request.getContent())
                 .targetType(request.getTargetType())
-                .targetIds(request.getTargetIds() != null ? request.getTargetIds() : List.of())
+                .targetClassIds(request.getTargetClassIds() != null ? request.getTargetClassIds() : List.of())
+                .targetUserIds(request.getTargetUserIds() != null ? request.getTargetUserIds() : List.of())
+                .targetGrades(request.getTargetGrades() != null ? request.getTargetGrades() : List.of())
                 .attachments(request.getAttachments() != null ? request.getAttachments() : List.of())
                 .priority(request.getPriority() != null ? request.getPriority() : Announcement.Priority.NORMAL)
                 .scheduledAt(request.getScheduledAt())
@@ -105,8 +107,14 @@ public class AdminAnnouncementController {
         announcement.setTitle(request.getTitle());
         announcement.setContent(request.getContent());
         announcement.setTargetType(request.getTargetType());
-        if (request.getTargetIds() != null) {
-            announcement.setTargetIds(request.getTargetIds());
+        if (request.getTargetClassIds() != null) {
+            announcement.setTargetClassIds(request.getTargetClassIds());
+        }
+        if (request.getTargetUserIds() != null) {
+            announcement.setTargetUserIds(request.getTargetUserIds());
+        }
+        if (request.getTargetGrades() != null) {
+            announcement.setTargetGrades(request.getTargetGrades());
         }
         if (request.getAttachments() != null) {
             announcement.setAttachments(request.getAttachments());
@@ -165,6 +173,9 @@ public class AdminAnnouncementController {
                 .senderName(announcement.getSender() != null ? announcement.getSender().getFullName() : null)
                 .status(announcement.getStatus() != null ? announcement.getStatus().name() : null)
                 .targetType(announcement.getTargetType() != null ? announcement.getTargetType().name() : null)
+                .targetClassIds(announcement.getTargetClassIds())
+                .targetUserIds(announcement.getTargetUserIds())
+                .targetGrades(announcement.getTargetGrades())
                 .scheduledAt(announcement.getScheduledAt())
                 .createdAt(announcement.getCreatedAt())
                 .build();
@@ -181,7 +192,15 @@ public class AdminAnnouncementController {
         @NotNull(message = "Target type is required")
         private Announcement.TargetType targetType;
 
-        private List<Long> targetIds;
+        // For CLASS targeting - list of class IDs
+        private List<Long> targetClassIds;
+
+        // For SPECIFIC_USERS targeting - list of user IDs
+        private List<Long> targetUserIds;
+
+        // For GRADE targeting - list of grade numbers (e.g., 1, 2, 3)
+        private List<Integer> targetGrades;
+
         private List<String> attachments;
         private Announcement.Priority priority;
         private LocalDateTime scheduledAt;
