@@ -6,14 +6,19 @@ import com.eduflow.dto.response.*;
 import com.eduflow.entity.academic.Grade;
 import com.eduflow.entity.academic.SchoolClass;
 import com.eduflow.entity.academic.Teacher;
+import com.eduflow.entity.communication.Announcement;
+import com.eduflow.entity.communication.AnnouncementRead;
 import com.eduflow.entity.communication.Homework;
 import com.eduflow.exception.ResourceNotFoundException;
 import com.eduflow.repository.academic.*;
+import com.eduflow.repository.communication.AnnouncementReadRepository;
+import com.eduflow.repository.communication.AnnouncementRepository;
 import com.eduflow.repository.communication.HomeworkRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +27,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -39,6 +45,8 @@ public class TeacherController {
     private final SubjectRepository subjectRepository;
     private final GradeRepository gradeRepository;
     private final HomeworkRepository homeworkRepository;
+    private final AnnouncementRepository announcementRepository;
+    private final AnnouncementReadRepository announcementReadRepository;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Get teacher dashboard", description = "Get teacher dashboard summary")
@@ -193,6 +201,70 @@ public class TeacherController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(response);
+    }
+
+    // Announcement endpoints
+    @GetMapping("/announcements")
+    @Operation(summary = "Get announcements", description = "Get all announcements for teachers")
+    public ResponseEntity<PagedResponse<AnnouncementResponse>> getAnnouncements(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Teacher teacher = getTeacherFromUser(userDetails);
+        Long userId = teacher.getUser().getId();
+
+        Page<Announcement> page = announcementRepository.findAnnouncementsForTeacher(userId, pageable);
+
+        List<Long> readIds = announcementReadRepository.findReadAnnouncementIdsByUserId(userId);
+
+        List<AnnouncementResponse> content = page.getContent().stream()
+                .map(a -> mapToAnnouncementResponse(a, readIds.contains(a.getId())))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(PagedResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements()));
+    }
+
+    @GetMapping("/announcements/unread-count")
+    @Operation(summary = "Get unread announcements count", description = "Get count of unread announcements")
+    public ResponseEntity<Long> getUnreadAnnouncementCount(@AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = getTeacherFromUser(userDetails);
+        Long userId = teacher.getUser().getId();
+        return ResponseEntity.ok(announcementReadRepository.countUnreadForTeacher(userId));
+    }
+
+    @PostMapping("/announcements/{id}/read")
+    @Operation(summary = "Mark announcement as read", description = "Mark a specific announcement as read")
+    public ResponseEntity<MessageResponse> markAnnouncementAsRead(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = getTeacherFromUser(userDetails);
+
+        Announcement announcement = announcementRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Announcement", "id", id));
+
+        if (!announcementReadRepository.existsByAnnouncementIdAndUserId(id, teacher.getUser().getId())) {
+            AnnouncementRead read = AnnouncementRead.builder()
+                    .announcement(announcement)
+                    .user(teacher.getUser())
+                    .readAt(LocalDateTime.now())
+                    .build();
+            announcementReadRepository.save(read);
+        }
+
+        return ResponseEntity.ok(MessageResponse.success("Announcement marked as read"));
+    }
+
+    private AnnouncementResponse mapToAnnouncementResponse(Announcement announcement, boolean read) {
+        return AnnouncementResponse.builder()
+                .id(announcement.getId())
+                .title(announcement.getTitle())
+                .content(announcement.getContent())
+                .priority(announcement.getPriority() != null ? announcement.getPriority().name() : null)
+                .publishedAt(announcement.getPublishedAt())
+                .expiresAt(announcement.getExpiresAt())
+                .attachments(announcement.getAttachments())
+                .read(read)
+                .senderName(announcement.getSender() != null ? announcement.getSender().getFullName() : null)
+                .build();
     }
 
     private Teacher getTeacherFromUser(UserDetails userDetails) {

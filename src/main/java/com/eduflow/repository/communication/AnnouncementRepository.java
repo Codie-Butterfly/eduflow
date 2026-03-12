@@ -34,4 +34,32 @@ public interface AnnouncementRepository extends JpaRepository<Announcement, Long
 
     @Query("SELECT a FROM Announcement a WHERE a.status = 'PUBLISHED' AND a.expiresAt < :now")
     List<Announcement> findExpiredAnnouncements(@Param("now") LocalDateTime now);
+
+    // Find announcements for parents - includes ALL, PARENTS, and CLASS-targeted for their children's classes
+    @Query("SELECT DISTINCT a FROM Announcement a WHERE a.status = 'PUBLISHED' " +
+            "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
+            "AND (a.targetType = 'ALL' OR a.targetType = 'PARENTS' " +
+            "OR (a.targetType = 'CLASS' AND EXISTS (SELECT 1 FROM a.targetIds t WHERE t IN :classIds)) " +
+            "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetIds t WHERE t = :userId))) " +
+            "ORDER BY a.priority DESC, a.publishedAt DESC")
+    Page<Announcement> findAnnouncementsForParent(@Param("classIds") List<Long> classIds,
+                                                   @Param("userId") Long userId,
+                                                   Pageable pageable);
+
+    // Find announcements for teachers
+    @Query("SELECT DISTINCT a FROM Announcement a WHERE a.status = 'PUBLISHED' " +
+            "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
+            "AND (a.targetType = 'ALL' OR a.targetType = 'TEACHERS' " +
+            "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetIds t WHERE t = :userId))) " +
+            "ORDER BY a.priority DESC, a.publishedAt DESC")
+    Page<Announcement> findAnnouncementsForTeacher(@Param("userId") Long userId, Pageable pageable);
+
+    // Count unread for parent
+    @Query("SELECT COUNT(DISTINCT a) FROM Announcement a WHERE a.status = 'PUBLISHED' " +
+            "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
+            "AND (a.targetType = 'ALL' OR a.targetType = 'PARENTS' " +
+            "OR (a.targetType = 'CLASS' AND EXISTS (SELECT 1 FROM a.targetIds t WHERE t IN :classIds)) " +
+            "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetIds t WHERE t = :userId))) " +
+            "AND a.id NOT IN (SELECT ar.announcement.id FROM AnnouncementRead ar WHERE ar.user.id = :userId)")
+    long countUnreadForParent(@Param("classIds") List<Long> classIds, @Param("userId") Long userId);
 }

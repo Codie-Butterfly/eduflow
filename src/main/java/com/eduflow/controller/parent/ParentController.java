@@ -223,16 +223,27 @@ public class ParentController {
 
     // Announcement endpoints
     @GetMapping("/announcements")
-    @Operation(summary = "Get announcements", description = "Get all announcements for parents")
+    @Operation(summary = "Get announcements", description = "Get all announcements for parents including class-specific ones")
     public ResponseEntity<PagedResponse<AnnouncementResponse>> getAnnouncements(
             @AuthenticationPrincipal UserDetails userDetails,
             @PageableDefault(size = 20) Pageable pageable) {
         Parent parent = getParentFromUser(userDetails);
         Long userId = parent.getUser().getId();
 
-        // Get announcements targeted to ALL or PARENTS
-        Page<Announcement> page = announcementRepository.findByTargetType(
-                Announcement.TargetType.PARENTS, pageable);
+        // Get children's class IDs for class-targeted announcements
+        List<Long> childClassIds = parent.getChildren().stream()
+                .filter(child -> child.getCurrentClass() != null)
+                .map(child -> child.getCurrentClass().getId())
+                .collect(Collectors.toList());
+
+        // If no classes, use empty list to avoid query issues
+        if (childClassIds.isEmpty()) {
+            childClassIds = List.of(0L);
+        }
+
+        // Get announcements targeted to ALL, PARENTS, specific classes, or this user
+        Page<Announcement> page = announcementRepository.findAnnouncementsForParent(
+                childClassIds, userId, pageable);
 
         List<Long> readIds = announcementReadRepository.findReadAnnouncementIdsByUserId(userId);
 
@@ -247,7 +258,19 @@ public class ParentController {
     @Operation(summary = "Get unread announcements count", description = "Get count of unread announcements")
     public ResponseEntity<Long> getUnreadAnnouncementCount(@AuthenticationPrincipal UserDetails userDetails) {
         Parent parent = getParentFromUser(userDetails);
-        return ResponseEntity.ok(announcementReadRepository.countUnreadByUserId(parent.getUser().getId()));
+        Long userId = parent.getUser().getId();
+
+        // Get children's class IDs
+        List<Long> childClassIds = parent.getChildren().stream()
+                .filter(child -> child.getCurrentClass() != null)
+                .map(child -> child.getCurrentClass().getId())
+                .collect(Collectors.toList());
+
+        if (childClassIds.isEmpty()) {
+            childClassIds = List.of(0L);
+        }
+
+        return ResponseEntity.ok(announcementRepository.countUnreadForParent(childClassIds, userId));
     }
 
     @PostMapping("/announcements/{id}/read")

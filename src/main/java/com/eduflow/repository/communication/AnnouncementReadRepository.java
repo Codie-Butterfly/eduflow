@@ -26,4 +26,10 @@ public interface AnnouncementReadRepository extends JpaRepository<AnnouncementRe
             "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
             "AND a.id NOT IN (SELECT ar.announcement.id FROM AnnouncementRead ar WHERE ar.user.id = :userId)")
     long countUnreadByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(a) FROM Announcement a WHERE a.status = 'PUBLISHED' " +
+            "AND (a.targetType = 'ALL' OR a.targetType = 'TEACHERS') " +
+            "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
+            "AND a.id NOT IN (SELECT ar.announcement.id FROM AnnouncementRead ar WHERE ar.user.id = :userId)")
+    long countUnreadForTeacher(@Param("userId") Long userId);
 }
