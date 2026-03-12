@@ -132,20 +132,31 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String email = tokenProvider.getUsernameFromToken(request.getRefreshToken());
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailWithRoles(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
 
         if (!request.getRefreshToken().equals(user.getRefreshToken())) {
             throw new UnauthorizedException("Refresh token mismatch");
         }
 
+        // Build authorities from roles
+        var authorities = user.getRoles().stream()
+                .map(role -> new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                        "ROLE_" + role.getName().name()))
+                .collect(Collectors.toList());
+
+        // Create UserDetails to be used as principal (JwtTokenProvider expects UserDetails)
+        org.springframework.security.core.userdetails.UserDetails userDetails =
+                new org.springframework.security.core.userdetails.User(
+                        user.getEmail(),
+                        user.getPassword(),
+                        authorities
+                );
+
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                user.getEmail(),
+                userDetails,
                 null,
-                user.getRoles().stream()
-                        .map(role -> new org.springframework.security.core.authority.SimpleGrantedAuthority(
-                                "ROLE_" + role.getName().name()))
-                        .collect(Collectors.toList())
+                authorities
         );
 
         String newAccessToken = tokenProvider.generateAccessToken(authentication);
