@@ -32,4 +32,10 @@ public interface AnnouncementReadRepository extends JpaRepository<AnnouncementRe
             "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
             "AND a.id NOT IN (SELECT ar.announcement.id FROM AnnouncementRead ar WHERE ar.user.id = :userId)")
     long countUnreadForTeacher(@Param("userId") Long userId);
+
+    // Find all reads for a specific announcement
+    List<AnnouncementRead> findByAnnouncementIdOrderByReadAtDesc(Long announcementId);
+
+    // Count reads for a specific announcement
+    long countByAnnouncementId(Long announcementId);
 }

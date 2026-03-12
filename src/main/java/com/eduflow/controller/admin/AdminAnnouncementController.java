@@ -6,6 +6,8 @@ import com.eduflow.dto.response.PagedResponse;
 import com.eduflow.entity.communication.Announcement;
 import com.eduflow.entity.user.User;
 import com.eduflow.exception.ResourceNotFoundException;
+import com.eduflow.entity.communication.AnnouncementRead;
+import com.eduflow.repository.communication.AnnouncementReadRepository;
 import com.eduflow.repository.communication.AnnouncementRepository;
 import com.eduflow.repository.user.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +38,7 @@ import java.util.stream.Collectors;
 public class AdminAnnouncementController {
 
     private final AnnouncementRepository announcementRepository;
+    private final AnnouncementReadRepository announcementReadRepository;
     private final UserRepository userRepository;
 
     @GetMapping
@@ -160,6 +163,32 @@ public class AdminAnnouncementController {
         return ResponseEntity.ok(mapToResponse(announcement));
     }
 
+    @GetMapping("/{id}/reads")
+    @Operation(summary = "Get announcement reads", description = "Get list of users who have read the announcement")
+    public ResponseEntity<AnnouncementReadStatsResponse> getAnnouncementReads(@PathVariable Long id) {
+        Announcement announcement = announcementRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Announcement", "id", id));
+
+        List<AnnouncementRead> reads = announcementReadRepository.findByAnnouncementIdOrderByReadAtDesc(id);
+        long totalReads = reads.size();
+
+        List<AnnouncementReadStatsResponse.ReadInfo> readDetails = reads.stream()
+                .map(r -> AnnouncementReadStatsResponse.ReadInfo.builder()
+                        .userId(r.getUser().getId())
+                        .userName(r.getUser().getFullName())
+                        .email(r.getUser().getEmail())
+                        .readAt(r.getReadAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(AnnouncementReadStatsResponse.builder()
+                .announcementId(id)
+                .announcementTitle(announcement.getTitle())
+                .totalReads(totalReads)
+                .reads(readDetails)
+                .build());
+    }
+
     private AnnouncementResponse mapToResponse(Announcement announcement) {
         return AnnouncementResponse.builder()
                 .id(announcement.getId())
@@ -205,5 +234,27 @@ public class AdminAnnouncementController {
         private Announcement.Priority priority;
         private LocalDateTime scheduledAt;
         private LocalDateTime expiresAt;
+    }
+
+    @Data
+    @lombok.Builder
+    @lombok.AllArgsConstructor
+    @lombok.NoArgsConstructor
+    public static class AnnouncementReadStatsResponse {
+        private Long announcementId;
+        private String announcementTitle;
+        private long totalReads;
+        private List<ReadInfo> reads;
+
+        @Data
+        @lombok.Builder
+        @lombok.AllArgsConstructor
+        @lombok.NoArgsConstructor
+        public static class ReadInfo {
+            private Long userId;
+            private String userName;
+            private String email;
+            private LocalDateTime readAt;
+        }
     }
 }
