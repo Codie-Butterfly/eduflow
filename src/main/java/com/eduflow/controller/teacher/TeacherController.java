@@ -97,6 +97,21 @@ public class TeacherController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/all-classes")
+    @Operation(summary = "Get all classes", description = "Get all classes in the school")
+    public ResponseEntity<List<ClassResponse>> getAllClasses(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("GET /all-classes - Request: user={}", userDetails.getUsername());
+
+        List<SchoolClass> classes = classRepository.findAll();
+        List<ClassResponse> response = classes.stream()
+                .map(this::mapToClassResponse)
+                .collect(Collectors.toList());
+
+        log.info("GET /all-classes - Response: {} classes found", response.size());
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/classes/{classId}")
     @Operation(summary = "Get class by ID", description = "Get details of a specific class")
     public ResponseEntity<ClassResponse> getClassById(
@@ -763,6 +778,60 @@ public class TeacherController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(PagedResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements()));
+    }
+
+    @PostMapping("/announcements")
+    @Operation(summary = "Create announcement", description = "Create a new announcement as a teacher")
+    public ResponseEntity<AnnouncementResponse> createAnnouncement(
+            @Valid @RequestBody CreateTeacherAnnouncementRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = getTeacherFromUser(userDetails);
+        log.info("POST /announcements - Request: title={}, targetType={}, user={}",
+                request.getTitle(), request.getTargetType(), userDetails.getUsername());
+
+        Announcement announcement = Announcement.builder()
+                .sender(teacher.getUser())
+                .title(request.getTitle())
+                .content(request.getContent())
+                .targetType(request.getTargetType())
+                .targetClassIds(request.getTargetClassIds() != null ? request.getTargetClassIds() : List.of())
+                .targetUserIds(request.getTargetUserIds() != null ? request.getTargetUserIds() : List.of())
+                .targetGrades(request.getTargetGrades() != null ? request.getTargetGrades() : List.of())
+                .attachments(request.getAttachments() != null ? request.getAttachments() : List.of())
+                .priority(request.getPriority() != null ? request.getPriority() : Announcement.Priority.NORMAL)
+                .expiresAt(request.getExpiresAt())
+                .status(Announcement.AnnouncementStatus.PUBLISHED)
+                .publishedAt(LocalDateTime.now())
+                .build();
+
+        announcement = announcementRepository.save(announcement);
+        log.info("POST /announcements - Response: announcementId={}", announcement.getId());
+        return ResponseEntity.ok(mapToAnnouncementResponse(announcement, false));
+    }
+
+    @lombok.Data
+    public static class CreateTeacherAnnouncementRequest {
+        @jakarta.validation.constraints.NotBlank(message = "Title is required")
+        private String title;
+
+        @jakarta.validation.constraints.NotBlank(message = "Content is required")
+        private String content;
+
+        @jakarta.validation.constraints.NotNull(message = "Target type is required")
+        private Announcement.TargetType targetType;
+
+        // For CLASS targeting - list of class IDs
+        private List<Long> targetClassIds;
+
+        // For SPECIFIC_USERS targeting - list of user IDs
+        private List<Long> targetUserIds;
+
+        // For GRADE targeting - list of grade numbers
+        private List<Integer> targetGrades;
+
+        private List<String> attachments;
+        private Announcement.Priority priority;
+        private LocalDateTime expiresAt;
     }
 
     @GetMapping("/announcements/unread-count")
