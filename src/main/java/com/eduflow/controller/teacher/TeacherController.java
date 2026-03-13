@@ -3,6 +3,7 @@ package com.eduflow.controller.teacher;
 import com.eduflow.dto.request.CreateGradeRequest;
 import com.eduflow.dto.request.CreateHomeworkRequest;
 import com.eduflow.dto.response.*;
+import com.eduflow.entity.academic.Attendance;
 import com.eduflow.entity.academic.Grade;
 import com.eduflow.entity.academic.SchoolClass;
 import com.eduflow.entity.academic.Teacher;
@@ -27,6 +28,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -47,6 +49,7 @@ public class TeacherController {
     private final HomeworkRepository homeworkRepository;
     private final AnnouncementRepository announcementRepository;
     private final AnnouncementReadRepository announcementReadRepository;
+    private final AttendanceRepository attendanceRepository;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Get teacher dashboard", description = "Get teacher dashboard summary")
@@ -211,6 +214,114 @@ public class TeacherController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(response);
+    }
+
+    // Attendance endpoints
+    @GetMapping("/classes/{classId}/attendance")
+    @Operation(summary = "Get class attendance", description = "Get attendance for a class on a specific date")
+    public ResponseEntity<List<AttendanceResponse>> getClassAttendance(
+            @PathVariable Long classId,
+            @RequestParam LocalDate date,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        List<Attendance> attendanceList = attendanceRepository.findBySchoolClassIdAndDate(classId, date);
+
+        // If no attendance records exist for this date, return empty list with all students
+        if (attendanceList.isEmpty()) {
+            List<com.eduflow.entity.academic.Student> students = studentRepository.findByCurrentClassId(classId);
+            List<AttendanceResponse> response = students.stream()
+                    .map(s -> AttendanceResponse.builder()
+                            .studentId(s.getId())
+                            .studentName(s.getUser().getFullName())
+                            .studentNumber(s.getStudentId())
+                            .classId(classId)
+                            .date(date)
+                            .status(null) // Not yet marked
+                            .build())
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(response);
+        }
+
+        List<AttendanceResponse> response = attendanceList.stream()
+                .map(this::mapToAttendanceResponse)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/classes/{classId}/attendance")
+    @Operation(summary = "Mark attendance", description = "Mark or update attendance for students in a class")
+    public ResponseEntity<List<AttendanceResponse>> markAttendance(
+            @PathVariable Long classId,
+            @RequestParam LocalDate date,
+            @Valid @RequestBody List<MarkAttendanceRequest> requests,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = getTeacherFromUser(userDetails);
+        SchoolClass schoolClass = classRepository.findById(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Class", "id", classId));
+
+        List<AttendanceResponse> responses = new java.util.ArrayList<>();
+
+        for (MarkAttendanceRequest request : requests) {
+            com.eduflow.entity.academic.Student student = studentRepository.findById(request.getStudentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Student", "id", request.getStudentId()));
+
+            Attendance attendance = attendanceRepository
+                    .findByStudentIdAndSchoolClassIdAndDate(request.getStudentId(), classId, date)
+                    .orElse(Attendance.builder()
+                            .student(student)
+                            .schoolClass(schoolClass)
+                            .date(date)
+                            .build());
+
+            attendance.setStatus(request.getStatus());
+            attendance.setRemarks(request.getRemarks());
+            attendance.setMarkedBy(teacher);
+
+            attendance = attendanceRepository.save(attendance);
+            responses.add(mapToAttendanceResponse(attendance));
+        }
+
+        return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/students/{studentId}/attendance")
+    @Operation(summary = "Get student attendance", description = "Get attendance history for a student")
+    public ResponseEntity<List<AttendanceResponse>> getStudentAttendance(
+            @PathVariable Long studentId,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        List<Attendance> attendanceList = attendanceRepository.findByStudentIdAndDateBetween(studentId, startDate, endDate);
+
+        List<AttendanceResponse> response = attendanceList.stream()
+                .map(this::mapToAttendanceResponse)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(response);
+    }
+
+    private AttendanceResponse mapToAttendanceResponse(Attendance attendance) {
+        return AttendanceResponse.builder()
+                .id(attendance.getId())
+                .studentId(attendance.getStudent().getId())
+                .studentName(attendance.getStudent().getUser().getFullName())
+                .studentNumber(attendance.getStudent().getStudentId())
+                .classId(attendance.getSchoolClass().getId())
+                .className(attendance.getSchoolClass().getName())
+                .date(attendance.getDate())
+                .status(attendance.getStatus())
+                .remarks(attendance.getRemarks())
+                .markedByName(attendance.getMarkedBy() != null ? attendance.getMarkedBy().getUser().getFullName() : null)
+                .build();
+    }
+
+    @lombok.Data
+    public static class MarkAttendanceRequest {
+        @jakarta.validation.constraints.NotNull
+        private Long studentId;
+        @jakarta.validation.constraints.NotNull
+        private Attendance.AttendanceStatus status;
+        private String remarks;
     }
 
     // Announcement endpoints
