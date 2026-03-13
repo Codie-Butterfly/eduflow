@@ -1,9 +1,13 @@
 package com.eduflow.controller.teacher;
 
+import com.eduflow.dto.request.CreateAssessmentRequest;
 import com.eduflow.dto.request.CreateGradeRequest;
 import com.eduflow.dto.request.CreateHomeworkRequest;
 import com.eduflow.dto.response.*;
+import com.eduflow.entity.academic.Assessment;
+import com.eduflow.entity.academic.AssessmentScore;
 import com.eduflow.entity.academic.Attendance;
+import com.eduflow.entity.academic.TeacherClassSubject;
 import com.eduflow.entity.academic.Grade;
 import com.eduflow.entity.academic.SchoolClass;
 import com.eduflow.entity.academic.Teacher;
@@ -52,6 +56,9 @@ public class TeacherController {
     private final AnnouncementRepository announcementRepository;
     private final AnnouncementReadRepository announcementReadRepository;
     private final AttendanceRepository attendanceRepository;
+    private final TeacherClassSubjectRepository teacherClassSubjectRepository;
+    private final AssessmentRepository assessmentRepository;
+    private final AssessmentScoreRepository assessmentScoreRepository;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Get teacher dashboard", description = "Get teacher dashboard summary")
@@ -216,6 +223,262 @@ public class TeacherController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(response);
+    }
+
+    // Teacher Assignment endpoints - get classes and subjects teacher is assigned to
+    @GetMapping("/my-assignments")
+    @Operation(summary = "Get my teaching assignments", description = "Get classes and subjects assigned to the teacher")
+    public ResponseEntity<List<TeacherAssignmentResponse.ClassWithSubjects>> getMyAssignments(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = getTeacherFromUser(userDetails);
+        log.info("GET /my-assignments - Request: teacherId={}, user={}", teacher.getId(), userDetails.getUsername());
+
+        List<TeacherClassSubject> assignments = teacherClassSubjectRepository.findByTeacherIdAndActiveTrue(teacher.getId());
+
+        // Group by class
+        java.util.Map<Long, List<TeacherClassSubject>> byClass = assignments.stream()
+                .collect(Collectors.groupingBy(a -> a.getSchoolClass().getId()));
+
+        List<TeacherAssignmentResponse.ClassWithSubjects> response = byClass.entrySet().stream()
+                .map(entry -> {
+                    TeacherClassSubject first = entry.getValue().get(0);
+                    SchoolClass sc = first.getSchoolClass();
+                    List<TeacherAssignmentResponse.SubjectInfo> subjects = entry.getValue().stream()
+                            .map(a -> TeacherAssignmentResponse.SubjectInfo.builder()
+                                    .id(a.getSubject().getId())
+                                    .name(a.getSubject().getName())
+                                    .code(a.getSubject().getCode())
+                                    .build())
+                            .collect(Collectors.toList());
+
+                    return TeacherAssignmentResponse.ClassWithSubjects.builder()
+                            .classId(sc.getId())
+                            .className(sc.getName())
+                            .grade(sc.getGrade())
+                            .section(sc.getSection())
+                            .studentCount(sc.getStudents().size())
+                            .subjects(subjects)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        log.info("GET /my-assignments - Response: {} classes found", response.size());
+        return ResponseEntity.ok(response);
+    }
+
+    // Assessment endpoints
+    @PostMapping("/assessments")
+    @Operation(summary = "Create assessment", description = "Create a new test/exercise and optionally record scores")
+    public ResponseEntity<AssessmentResponse> createAssessment(
+            @Valid @RequestBody CreateAssessmentRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = getTeacherFromUser(userDetails);
+        log.info("POST /assessments - Request: title={}, type={}, classId={}, subjectId={}, date={}, maxScore={}, user={}",
+                request.getTitle(), request.getType(), request.getClassId(), request.getSubjectId(),
+                request.getDate(), request.getMaxScore(), userDetails.getUsername());
+
+        SchoolClass schoolClass = classRepository.findById(request.getClassId())
+                .orElseThrow(() -> new ResourceNotFoundException("Class", "id", request.getClassId()));
+
+        com.eduflow.entity.academic.Subject subject = subjectRepository.findById(request.getSubjectId())
+                .orElseThrow(() -> new ResourceNotFoundException("Subject", "id", request.getSubjectId()));
+
+        Assessment assessment = Assessment.builder()
+                .title(request.getTitle())
+                .type(request.getType())
+                .teacher(teacher)
+                .schoolClass(schoolClass)
+                .subject(subject)
+                .date(request.getDate())
+                .maxScore(request.getMaxScore())
+                .term(request.getTerm())
+                .academicYear(request.getAcademicYear())
+                .description(request.getDescription())
+                .build();
+
+        assessment = assessmentRepository.save(assessment);
+
+        // If scores are provided, save them
+        if (request.getScores() != null && !request.getScores().isEmpty()) {
+            for (CreateAssessmentRequest.StudentScore scoreReq : request.getScores()) {
+                com.eduflow.entity.academic.Student student = studentRepository.findById(scoreReq.getStudentId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Student", "id", scoreReq.getStudentId()));
+
+                AssessmentScore score = AssessmentScore.builder()
+                        .assessment(assessment)
+                        .student(student)
+                        .score(scoreReq.getScore())
+                        .remarks(scoreReq.getRemarks())
+                        .absent(scoreReq.getAbsent() != null ? scoreReq.getAbsent() : false)
+                        .build();
+                assessmentScoreRepository.save(score);
+            }
+            log.info("POST /assessments - Saved {} scores", request.getScores().size());
+        }
+
+        log.info("POST /assessments - Response: assessmentId={}", assessment.getId());
+        return ResponseEntity.ok(mapToAssessmentResponse(assessment, true));
+    }
+
+    @GetMapping("/assessments")
+    @Operation(summary = "Get my assessments", description = "Get assessments created by the teacher")
+    public ResponseEntity<List<AssessmentResponse>> getMyAssessments(
+            @RequestParam(required = false) String academicYear,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = getTeacherFromUser(userDetails);
+        log.info("GET /assessments - Request: teacherId={}, academicYear={}, user={}",
+                teacher.getId(), academicYear, userDetails.getUsername());
+
+        List<Assessment> assessments;
+        if (academicYear != null) {
+            assessments = assessmentRepository.findByTeacherIdAndAcademicYearOrderByDateDesc(teacher.getId(), academicYear);
+        } else {
+            assessments = assessmentRepository.findByTeacherIdOrderByDateDesc(teacher.getId());
+        }
+
+        List<AssessmentResponse> response = assessments.stream()
+                .map(a -> mapToAssessmentResponse(a, false))
+                .collect(Collectors.toList());
+
+        log.info("GET /assessments - Response: {} assessments found", response.size());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/assessments/{assessmentId}")
+    @Operation(summary = "Get assessment details", description = "Get assessment with all student scores")
+    public ResponseEntity<AssessmentResponse> getAssessment(
+            @PathVariable Long assessmentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("GET /assessments/{} - Request: user={}", assessmentId, userDetails.getUsername());
+
+        Assessment assessment = assessmentRepository.findById(assessmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assessment", "id", assessmentId));
+
+        AssessmentResponse response = mapToAssessmentResponse(assessment, true);
+        log.info("GET /assessments/{} - Response: {} scores", assessmentId, response.getScores().size());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/assessments/{assessmentId}/scores")
+    @Operation(summary = "Record scores", description = "Record or update student scores for an assessment")
+    public ResponseEntity<AssessmentResponse> recordScores(
+            @PathVariable Long assessmentId,
+            @Valid @RequestBody List<CreateAssessmentRequest.StudentScore> scores,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("POST /assessments/{}/scores - Request: {} students, user={}",
+                assessmentId, scores.size(), userDetails.getUsername());
+
+        Assessment assessment = assessmentRepository.findById(assessmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assessment", "id", assessmentId));
+
+        for (CreateAssessmentRequest.StudentScore scoreReq : scores) {
+            com.eduflow.entity.academic.Student student = studentRepository.findById(scoreReq.getStudentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Student", "id", scoreReq.getStudentId()));
+
+            AssessmentScore score = assessmentScoreRepository.findByAssessmentIdAndStudentId(assessmentId, scoreReq.getStudentId())
+                    .orElse(AssessmentScore.builder()
+                            .assessment(assessment)
+                            .student(student)
+                            .build());
+
+            score.setScore(scoreReq.getScore());
+            score.setRemarks(scoreReq.getRemarks());
+            score.setAbsent(scoreReq.getAbsent() != null ? scoreReq.getAbsent() : false);
+            assessmentScoreRepository.save(score);
+        }
+
+        log.info("POST /assessments/{}/scores - Response: {} scores saved", assessmentId, scores.size());
+        return ResponseEntity.ok(mapToAssessmentResponse(assessment, true));
+    }
+
+    @GetMapping("/classes/{classId}/assessments")
+    @Operation(summary = "Get class assessments", description = "Get all assessments for a class")
+    public ResponseEntity<List<AssessmentResponse>> getClassAssessments(
+            @PathVariable Long classId,
+            @RequestParam(required = false) Long subjectId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("GET /classes/{}/assessments - Request: subjectId={}, user={}",
+                classId, subjectId, userDetails.getUsername());
+
+        List<Assessment> assessments;
+        if (subjectId != null) {
+            assessments = assessmentRepository.findBySchoolClassIdAndSubjectIdOrderByDateDesc(classId, subjectId);
+        } else {
+            assessments = assessmentRepository.findBySchoolClassIdOrderByDateDesc(classId);
+        }
+
+        List<AssessmentResponse> response = assessments.stream()
+                .map(a -> mapToAssessmentResponse(a, false))
+                .collect(Collectors.toList());
+
+        log.info("GET /classes/{}/assessments - Response: {} assessments found", classId, response.size());
+        return ResponseEntity.ok(response);
+    }
+
+    private AssessmentResponse mapToAssessmentResponse(Assessment assessment, boolean includeScores) {
+        List<AssessmentScore> scores = assessmentScoreRepository.findByAssessmentIdOrderByStudentUserLastNameAsc(assessment.getId());
+
+        java.math.BigDecimal avgScore = null;
+        java.math.BigDecimal avgPercentage = null;
+        int scoredCount = (int) scores.stream().filter(s -> s.getScore() != null && !s.getAbsent()).count();
+
+        if (scoredCount > 0) {
+            avgScore = scores.stream()
+                    .filter(s -> s.getScore() != null && !s.getAbsent())
+                    .map(AssessmentScore::getScore)
+                    .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
+                    .divide(java.math.BigDecimal.valueOf(scoredCount), 2, java.math.RoundingMode.HALF_UP);
+
+            avgPercentage = avgScore.multiply(java.math.BigDecimal.valueOf(100))
+                    .divide(assessment.getMaxScore(), 2, java.math.RoundingMode.HALF_UP);
+        }
+
+        List<AssessmentResponse.ScoreInfo> scoreInfos = null;
+        if (includeScores) {
+            scoreInfos = scores.stream()
+                    .map(s -> AssessmentResponse.ScoreInfo.builder()
+                            .id(s.getId())
+                            .studentId(s.getStudent().getId())
+                            .studentName(s.getStudent().getUser().getFullName())
+                            .studentNumber(s.getStudent().getStudentId())
+                            .score(s.getScore())
+                            .percentage(s.getPercentage())
+                            .gradeLetter(s.getGradeLetter())
+                            .remarks(s.getRemarks())
+                            .absent(s.getAbsent())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        return AssessmentResponse.builder()
+                .id(assessment.getId())
+                .title(assessment.getTitle())
+                .type(assessment.getType())
+                .date(assessment.getDate())
+                .maxScore(assessment.getMaxScore())
+                .term(assessment.getTerm())
+                .academicYear(assessment.getAcademicYear())
+                .description(assessment.getDescription())
+                .schoolClass(AssessmentResponse.ClassInfo.builder()
+                        .id(assessment.getSchoolClass().getId())
+                        .name(assessment.getSchoolClass().getName())
+                        .grade(assessment.getSchoolClass().getGrade())
+                        .build())
+                .subject(AssessmentResponse.SubjectInfo.builder()
+                        .id(assessment.getSubject().getId())
+                        .name(assessment.getSubject().getName())
+                        .code(assessment.getSubject().getCode())
+                        .build())
+                .teacher(AssessmentResponse.TeacherInfo.builder()
+                        .id(assessment.getTeacher().getId())
+                        .name(assessment.getTeacher().getUser().getFullName())
+                        .build())
+                .totalStudents(assessment.getSchoolClass().getStudents().size())
+                .scoredStudents(scoredCount)
+                .averageScore(avgScore)
+                .averagePercentage(avgPercentage)
+                .scores(scoreInfos)
+                .build();
     }
 
     // Attendance endpoints
