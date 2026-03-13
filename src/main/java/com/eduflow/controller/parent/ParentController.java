@@ -2,11 +2,13 @@ package com.eduflow.controller.parent;
 
 import com.eduflow.dto.request.CreatePaymentRequest;
 import com.eduflow.dto.response.*;
+import com.eduflow.entity.academic.AssessmentScore;
 import com.eduflow.entity.academic.Parent;
 import com.eduflow.entity.academic.Student;
 import com.eduflow.entity.communication.Announcement;
 import com.eduflow.entity.communication.AnnouncementRead;
 import com.eduflow.exception.ResourceNotFoundException;
+import com.eduflow.repository.academic.AssessmentScoreRepository;
 import com.eduflow.repository.academic.ParentRepository;
 import com.eduflow.repository.communication.AnnouncementReadRepository;
 import com.eduflow.repository.communication.AnnouncementRepository;
@@ -30,6 +32,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -52,6 +55,7 @@ public class ParentController {
     private final PaymentRepository paymentRepository;
     private final AnnouncementRepository announcementRepository;
     private final AnnouncementReadRepository announcementReadRepository;
+    private final AssessmentScoreRepository assessmentScoreRepository;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Get parent dashboard", description = "Get dashboard summary for parent")
@@ -159,6 +163,129 @@ public class ParentController {
             @AuthenticationPrincipal UserDetails userDetails) {
         verifyParentAccessToStudent(userDetails, studentId);
         return ResponseEntity.ok(feeService.getStudentFeesByYear(studentId, academicYear));
+    }
+
+    @GetMapping("/children/{childId}/grades")
+    @Operation(summary = "Get child grades", description = "Get assessment scores for a specific child with optional date range")
+    public ResponseEntity<ChildGradesResponse> getChildGrades(
+            @PathVariable Long childId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        verifyParentAccessToStudent(userDetails, childId);
+
+        List<AssessmentScore> scores;
+        if (startDate != null && endDate != null) {
+            scores = assessmentScoreRepository.findByStudentIdAndDateRange(childId, startDate, endDate);
+        } else {
+            scores = assessmentScoreRepository.findByStudentIdWithDetails(childId);
+        }
+
+        // Calculate summary
+        int totalAssessments = scores.size();
+        int absences = (int) scores.stream().filter(s -> Boolean.TRUE.equals(s.getAbsent())).count();
+
+        BigDecimal overallAverage = null;
+        List<AssessmentScore> scoredAssessments = scores.stream()
+                .filter(s -> s.getScore() != null && !Boolean.TRUE.equals(s.getAbsent()))
+                .toList();
+
+        if (!scoredAssessments.isEmpty()) {
+            BigDecimal totalPercentage = scoredAssessments.stream()
+                    .map(s -> s.getScore()
+                            .multiply(BigDecimal.valueOf(100))
+                            .divide(s.getAssessment().getMaxScore(), 2, java.math.RoundingMode.HALF_UP))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            overallAverage = totalPercentage.divide(
+                    BigDecimal.valueOf(scoredAssessments.size()), 2, java.math.RoundingMode.HALF_UP);
+        }
+
+        List<ChildGradesResponse.GradeItem> gradeItems = scores.stream()
+                .map(s -> {
+                    BigDecimal percentage = null;
+                    if (s.getScore() != null && !Boolean.TRUE.equals(s.getAbsent())) {
+                        percentage = s.getScore()
+                                .multiply(BigDecimal.valueOf(100))
+                                .divide(s.getAssessment().getMaxScore(), 1, java.math.RoundingMode.HALF_UP);
+                    }
+
+                    return ChildGradesResponse.GradeItem.builder()
+                            .id(s.getId())
+                            .assessment(ChildGradesResponse.AssessmentInfo.builder()
+                                    .id(s.getAssessment().getId())
+                                    .title(s.getAssessment().getTitle())
+                                    .type(s.getAssessment().getType().name())
+                                    .date(s.getAssessment().getDate())
+                                    .maxScore(s.getAssessment().getMaxScore())
+                                    .term(s.getAssessment().getTerm().name())
+                                    .academicYear(s.getAssessment().getAcademicYear())
+                                    .build())
+                            .subject(ChildGradesResponse.SubjectInfo.builder()
+                                    .id(s.getAssessment().getSubject().getId())
+                                    .name(s.getAssessment().getSubject().getName())
+                                    .build())
+                            .score(s.getScore())
+                            .percentage(percentage)
+                            .absent(s.getAbsent())
+                            .remarks(s.getRemarks())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(ChildGradesResponse.builder()
+                .totalAssessments(totalAssessments)
+                .overallAverage(overallAverage)
+                .absences(absences)
+                .grades(gradeItems)
+                .build());
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class ChildGradesResponse {
+        private int totalAssessments;
+        private BigDecimal overallAverage;
+        private int absences;
+        private List<GradeItem> grades;
+
+        @lombok.Data
+        @lombok.Builder
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class GradeItem {
+            private Long id;
+            private AssessmentInfo assessment;
+            private SubjectInfo subject;
+            private BigDecimal score;
+            private BigDecimal percentage;
+            private Boolean absent;
+            private String remarks;
+        }
+
+        @lombok.Data
+        @lombok.Builder
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class AssessmentInfo {
+            private Long id;
+            private String title;
+            private String type;
+            private LocalDate date;
+            private BigDecimal maxScore;
+            private String term;
+            private String academicYear;
+        }
+
+        @lombok.Data
+        @lombok.Builder
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class SubjectInfo {
+            private Long id;
+            private String name;
+        }
     }
 
     @GetMapping("/children/{studentId}/payments")

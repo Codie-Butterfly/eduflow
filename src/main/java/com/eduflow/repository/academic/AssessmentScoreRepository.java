@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,4 +44,23 @@ public interface AssessmentScoreRepository extends JpaRepository<AssessmentScore
 
     // Count scores for an assessment
     long countByAssessmentId(Long assessmentId);
+
+    // Find scores for a student within a date range with eager loading
+    @Query("SELECT s FROM AssessmentScore s " +
+            "LEFT JOIN FETCH s.assessment a " +
+            "LEFT JOIN FETCH a.subject " +
+            "WHERE s.student.id = :studentId " +
+            "AND a.date BETWEEN :startDate AND :endDate " +
+            "ORDER BY a.date DESC")
+    List<AssessmentScore> findByStudentIdAndDateRange(@Param("studentId") Long studentId,
+                                                       @Param("startDate") LocalDate startDate,
+                                                       @Param("endDate") LocalDate endDate);
+
+    // Find all scores for a student with eager loading
+    @Query("SELECT s FROM AssessmentScore s " +
+            "LEFT JOIN FETCH s.assessment a " +
+            "LEFT JOIN FETCH a.subject " +
+            "WHERE s.student.id = :studentId " +
+            "ORDER BY a.date DESC")
+    List<AssessmentScore> findByStudentIdWithDetails(@Param("studentId") Long studentId);
 }
