@@ -107,6 +107,29 @@ public class TeacherController {
         return ResponseEntity.ok(mapToClassResponse(schoolClass));
     }
 
+    @GetMapping("/classes/{classId}/subjects")
+    @Operation(summary = "Get class subjects", description = "Get all subjects for a specific class")
+    public ResponseEntity<List<SubjectResponse>> getClassSubjects(
+            @PathVariable Long classId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("GET /classes/{}/subjects - Request: user={}", classId, userDetails.getUsername());
+
+        SchoolClass schoolClass = classRepository.findById(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Class", "id", classId));
+
+        List<SubjectResponse> response = schoolClass.getSubjects().stream()
+                .map(s -> SubjectResponse.builder()
+                        .id(s.getId())
+                        .name(s.getName())
+                        .code(s.getCode())
+                        .description(s.getDescription())
+                        .build())
+                .collect(Collectors.toList());
+
+        log.info("GET /classes/{}/subjects - Response: {} subjects found", classId, response.size());
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/classes/{classId}/students")
     @Operation(summary = "Get students in class", description = "Get all students in a specific class")
     public ResponseEntity<List<StudentResponse>> getStudentsInClass(
