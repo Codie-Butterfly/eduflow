@@ -300,6 +300,65 @@ public class TeacherController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/classes/{classId}/attendance/range")
+    @Operation(summary = "Get class attendance for date range", description = "Get attendance records for a class within a date range")
+    public ResponseEntity<ClassAttendanceRangeResponse> getClassAttendanceRange(
+            @PathVariable Long classId,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        SchoolClass schoolClass = classRepository.findById(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Class", "id", classId));
+
+        List<Attendance> attendanceList = attendanceRepository.findBySchoolClassIdAndDateBetween(classId, startDate, endDate);
+
+        List<ClassAttendanceRangeResponse.AttendanceRecord> records = attendanceList.stream()
+                .map(a -> ClassAttendanceRangeResponse.AttendanceRecord.builder()
+                        .studentId(a.getStudent().getId())
+                        .studentName(a.getStudent().getUser().getFullName())
+                        .studentNumber(a.getStudent().getStudentId())
+                        .date(a.getDate())
+                        .status(a.getStatus())
+                        .remarks(a.getRemarks())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(ClassAttendanceRangeResponse.builder()
+                .classId(classId)
+                .className(schoolClass.getName())
+                .startDate(startDate)
+                .endDate(endDate)
+                .totalRecords(records.size())
+                .records(records)
+                .build());
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class ClassAttendanceRangeResponse {
+        private Long classId;
+        private String className;
+        private LocalDate startDate;
+        private LocalDate endDate;
+        private int totalRecords;
+        private List<AttendanceRecord> records;
+
+        @lombok.Data
+        @lombok.Builder
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class AttendanceRecord {
+            private Long studentId;
+            private String studentName;
+            private String studentNumber;
+            private LocalDate date;
+            private Attendance.AttendanceStatus status;
+            private String remarks;
+        }
+    }
+
     @PostMapping("/attendance/status")
     @Operation(summary = "Check attendance status", description = "Check if attendance is pending for given classes on current date")
     public ResponseEntity<List<AttendanceStatusResponse>> checkAttendanceStatus(
