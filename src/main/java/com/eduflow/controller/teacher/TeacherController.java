@@ -14,7 +14,9 @@ import com.eduflow.entity.academic.Teacher;
 import com.eduflow.entity.communication.Announcement;
 import com.eduflow.entity.communication.AnnouncementRead;
 import com.eduflow.entity.communication.Homework;
+import com.eduflow.entity.communication.Notification;
 import com.eduflow.exception.ResourceNotFoundException;
+import com.eduflow.service.NotificationService;
 import com.eduflow.repository.academic.*;
 import com.eduflow.repository.communication.AnnouncementReadRepository;
 import com.eduflow.repository.communication.AnnouncementRepository;
@@ -59,6 +61,7 @@ public class TeacherController {
     private final TeacherClassSubjectRepository teacherClassSubjectRepository;
     private final AssessmentRepository assessmentRepository;
     private final AssessmentScoreRepository assessmentScoreRepository;
+    private final NotificationService notificationService;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Get teacher dashboard", description = "Get teacher dashboard summary")
@@ -451,6 +454,133 @@ public class TeacherController {
 
         log.info("GET /classes/{}/assessments - Response: {} assessments found", classId, response.size());
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/assessments/{assessmentId}/notify/{studentId}")
+    @Operation(summary = "Notify single parent", description = "Send assessment score notification to a student's parent")
+    public ResponseEntity<MessageResponse> notifyParentOfScore(
+            @PathVariable Long assessmentId,
+            @PathVariable Long studentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("POST /assessments/{}/notify/{} - Request: user={}", assessmentId, studentId, userDetails.getUsername());
+
+        Assessment assessment = assessmentRepository.findByIdWithDetails(assessmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assessment", "id", assessmentId));
+
+        AssessmentScore score = assessmentScoreRepository.findByAssessmentIdAndStudentId(assessmentId, studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Score not found for student", "studentId", studentId));
+
+        com.eduflow.entity.academic.Student student = score.getStudent();
+        if (student.getParent() == null) {
+            return ResponseEntity.badRequest()
+                    .body(MessageResponse.error("Student " + student.getUser().getFullName() + " has no parent linked"));
+        }
+
+        String message = buildScoreNotificationMessage(student, score, assessment);
+        String title = "Assessment Score: " + assessment.getTitle();
+
+        notificationService.createNotification(
+                student.getParent().getUser(),
+                title,
+                message,
+                Notification.NotificationType.GRADE_PUBLISHED,
+                Notification.NotificationChannel.IN_APP,
+                "ASSESSMENT",
+                assessmentId
+        );
+
+        log.info("POST /assessments/{}/notify/{} - Notification sent to parent: {}",
+                assessmentId, studentId, student.getParent().getUser().getFullName());
+        return ResponseEntity.ok(MessageResponse.success("Notification sent to " + student.getParent().getUser().getFullName()));
+    }
+
+    @PostMapping("/assessments/{assessmentId}/notify-all")
+    @Operation(summary = "Notify all parents", description = "Send assessment score notifications to all parents of students with scores")
+    public ResponseEntity<NotifyAllResponse> notifyAllParentsOfScores(
+            @PathVariable Long assessmentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("POST /assessments/{}/notify-all - Request: user={}", assessmentId, userDetails.getUsername());
+
+        Assessment assessment = assessmentRepository.findByIdWithDetails(assessmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assessment", "id", assessmentId));
+
+        List<AssessmentScore> scores = assessmentScoreRepository.findByAssessmentIdOrderByStudentUserLastNameAsc(assessmentId);
+
+        int notificationsSent = 0;
+        int studentsWithoutParent = 0;
+        java.util.List<String> notifiedParents = new java.util.ArrayList<>();
+
+        for (AssessmentScore score : scores) {
+            if (score.getScore() == null && !Boolean.TRUE.equals(score.getAbsent())) {
+                continue; // Skip students without scores
+            }
+
+            com.eduflow.entity.academic.Student student = score.getStudent();
+            if (student.getParent() == null) {
+                studentsWithoutParent++;
+                continue;
+            }
+
+            String message = buildScoreNotificationMessage(student, score, assessment);
+            String title = "Assessment Score: " + assessment.getTitle();
+
+            notificationService.createNotification(
+                    student.getParent().getUser(),
+                    title,
+                    message,
+                    Notification.NotificationType.GRADE_PUBLISHED,
+                    Notification.NotificationChannel.IN_APP,
+                    "ASSESSMENT",
+                    assessmentId
+            );
+
+            notifiedParents.add(student.getParent().getUser().getFullName());
+            notificationsSent++;
+        }
+
+        log.info("POST /assessments/{}/notify-all - Response: {} notifications sent, {} students without parent",
+                assessmentId, notificationsSent, studentsWithoutParent);
+
+        return ResponseEntity.ok(NotifyAllResponse.builder()
+                .notificationsSent(notificationsSent)
+                .studentsWithoutParent(studentsWithoutParent)
+                .notifiedParents(notifiedParents)
+                .message(notificationsSent + " notifications sent successfully")
+                .build());
+    }
+
+    private String buildScoreNotificationMessage(com.eduflow.entity.academic.Student student,
+                                                  AssessmentScore score,
+                                                  Assessment assessment) {
+        if (Boolean.TRUE.equals(score.getAbsent())) {
+            return String.format("Your child %s was absent for %s in %s.",
+                    student.getUser().getFullName(),
+                    assessment.getTitle(),
+                    assessment.getSubject().getName());
+        }
+
+        java.math.BigDecimal percentage = score.getScore()
+                .multiply(java.math.BigDecimal.valueOf(100))
+                .divide(assessment.getMaxScore(), 1, java.math.RoundingMode.HALF_UP);
+
+        return String.format("Your child %s scored %s/%s (%.1f%%) on %s in %s.",
+                student.getUser().getFullName(),
+                score.getScore().stripTrailingZeros().toPlainString(),
+                assessment.getMaxScore().stripTrailingZeros().toPlainString(),
+                percentage.doubleValue(),
+                assessment.getTitle(),
+                assessment.getSubject().getName());
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class NotifyAllResponse {
+        private int notificationsSent;
+        private int studentsWithoutParent;
+        private List<String> notifiedParents;
+        private String message;
     }
 
     private AssessmentResponse mapToAssessmentResponse(Assessment assessment, boolean includeScores) {
