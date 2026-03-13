@@ -38,4 +38,12 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     long countTotalDays(@Param("studentId") Long studentId,
                         @Param("startDate") LocalDate startDate,
                         @Param("endDate") LocalDate endDate);
+
+    // Check if attendance has been marked for a class on a date
+    @Query("SELECT COUNT(a) FROM Attendance a WHERE a.schoolClass.id = :classId AND a.date = :date")
+    long countByClassIdAndDate(@Param("classId") Long classId, @Param("date") LocalDate date);
+
+    // Check attendance status for multiple classes on a date
+    @Query("SELECT a.schoolClass.id FROM Attendance a WHERE a.schoolClass.id IN :classIds AND a.date = :date GROUP BY a.schoolClass.id")
+    List<Long> findClassIdsWithAttendanceOnDate(@Param("classIds") List<Long> classIds, @Param("date") LocalDate date);
 }

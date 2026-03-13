@@ -300,6 +300,49 @@ public class TeacherController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/attendance/status")
+    @Operation(summary = "Check attendance status", description = "Check if attendance is pending for given classes on current date")
+    public ResponseEntity<List<AttendanceStatusResponse>> checkAttendanceStatus(
+            @RequestBody List<Long> classIds,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        LocalDate today = LocalDate.now();
+
+        // Find which classes already have attendance marked today
+        List<Long> classesWithAttendance = attendanceRepository.findClassIdsWithAttendanceOnDate(classIds, today);
+
+        List<AttendanceStatusResponse> response = classIds.stream()
+                .map(classId -> {
+                    SchoolClass schoolClass = classRepository.findById(classId).orElse(null);
+                    boolean hasAttendance = classesWithAttendance.contains(classId);
+                    int studentCount = schoolClass != null ? schoolClass.getStudents().size() : 0;
+
+                    return AttendanceStatusResponse.builder()
+                            .classId(classId)
+                            .className(schoolClass != null ? schoolClass.getName() : null)
+                            .date(today)
+                            .isPending(!hasAttendance)
+                            .isCompleted(hasAttendance)
+                            .totalStudents(studentCount)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class AttendanceStatusResponse {
+        private Long classId;
+        private String className;
+        private LocalDate date;
+        private boolean isPending;
+        private boolean isCompleted;
+        private int totalStudents;
+    }
+
     private AttendanceResponse mapToAttendanceResponse(Attendance attendance) {
         return AttendanceResponse.builder()
                 .id(attendance.getId())
