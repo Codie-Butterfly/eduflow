@@ -85,6 +85,16 @@ public class TeacherController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/classes/{classId}")
+    @Operation(summary = "Get class by ID", description = "Get details of a specific class")
+    public ResponseEntity<ClassResponse> getClassById(
+            @PathVariable Long classId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        SchoolClass schoolClass = classRepository.findById(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Class", "id", classId));
+        return ResponseEntity.ok(mapToClassResponse(schoolClass));
+    }
+
     @GetMapping("/classes/{classId}/students")
     @Operation(summary = "Get students in class", description = "Get all students in a specific class")
     public ResponseEntity<List<StudentResponse>> getStudentsInClass(
