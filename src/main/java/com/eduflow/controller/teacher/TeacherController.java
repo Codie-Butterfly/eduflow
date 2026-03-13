@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -33,6 +34,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/v1/teacher")
 @RequiredArgsConstructor
@@ -223,6 +225,9 @@ public class TeacherController {
             @PathVariable Long classId,
             @RequestParam LocalDate date,
             @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("GET /classes/{}/attendance - Request: classId={}, date={}, user={}",
+                classId, classId, date, userDetails.getUsername());
+
         List<Attendance> attendanceList = attendanceRepository.findBySchoolClassIdAndDate(classId, date);
 
         // If no attendance records exist for this date, return empty list with all students
@@ -238,6 +243,8 @@ public class TeacherController {
                             .status(null) // Not yet marked
                             .build())
                     .collect(Collectors.toList());
+            log.info("GET /classes/{}/attendance - Response: No attendance marked, returning {} students",
+                    classId, response.size());
             return ResponseEntity.ok(response);
         }
 
@@ -245,6 +252,7 @@ public class TeacherController {
                 .map(this::mapToAttendanceResponse)
                 .collect(Collectors.toList());
 
+        log.info("GET /classes/{}/attendance - Response: {} attendance records found", classId, response.size());
         return ResponseEntity.ok(response);
     }
 
@@ -255,6 +263,10 @@ public class TeacherController {
             @RequestParam LocalDate date,
             @Valid @RequestBody List<MarkAttendanceRequest> requests,
             @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("POST /classes/{}/attendance - Request: classId={}, date={}, students={}, user={}",
+                classId, classId, date, requests.size(), userDetails.getUsername());
+        log.debug("POST /classes/{}/attendance - Request body: {}", classId, requests);
+
         Teacher teacher = getTeacherFromUser(userDetails);
         SchoolClass schoolClass = classRepository.findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Class", "id", classId));
@@ -279,8 +291,10 @@ public class TeacherController {
 
             attendance = attendanceRepository.save(attendance);
             responses.add(mapToAttendanceResponse(attendance));
+            log.debug("Marked attendance for student {} as {}", request.getStudentId(), request.getStatus());
         }
 
+        log.info("POST /classes/{}/attendance - Response: {} attendance records saved", classId, responses.size());
         return ResponseEntity.ok(responses);
     }
 
@@ -291,12 +305,16 @@ public class TeacherController {
             @RequestParam LocalDate startDate,
             @RequestParam LocalDate endDate,
             @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("GET /students/{}/attendance - Request: studentId={}, startDate={}, endDate={}, user={}",
+                studentId, studentId, startDate, endDate, userDetails.getUsername());
+
         List<Attendance> attendanceList = attendanceRepository.findByStudentIdAndDateBetween(studentId, startDate, endDate);
 
         List<AttendanceResponse> response = attendanceList.stream()
                 .map(this::mapToAttendanceResponse)
                 .collect(Collectors.toList());
 
+        log.info("GET /students/{}/attendance - Response: {} attendance records found", studentId, response.size());
         return ResponseEntity.ok(response);
     }
 
@@ -307,6 +325,9 @@ public class TeacherController {
             @RequestParam LocalDate startDate,
             @RequestParam LocalDate endDate,
             @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("GET /classes/{}/attendance/range - Request: classId={}, startDate={}, endDate={}, user={}",
+                classId, classId, startDate, endDate, userDetails.getUsername());
+
         SchoolClass schoolClass = classRepository.findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Class", "id", classId));
 
@@ -323,14 +344,18 @@ public class TeacherController {
                         .build())
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(ClassAttendanceRangeResponse.builder()
+        ClassAttendanceRangeResponse response = ClassAttendanceRangeResponse.builder()
                 .classId(classId)
                 .className(schoolClass.getName())
                 .startDate(startDate)
                 .endDate(endDate)
                 .totalRecords(records.size())
                 .records(records)
-                .build());
+                .build();
+
+        log.info("GET /classes/{}/attendance/range - Response: {} records for class '{}'",
+                classId, records.size(), schoolClass.getName());
+        return ResponseEntity.ok(response);
     }
 
     @lombok.Data
@@ -364,10 +389,13 @@ public class TeacherController {
     public ResponseEntity<List<AttendanceStatusResponse>> checkAttendanceStatus(
             @RequestBody List<Long> classIds,
             @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("POST /attendance/status - Request: classIds={}, user={}", classIds, userDetails.getUsername());
+
         LocalDate today = LocalDate.now();
 
         // Find which classes already have attendance marked today
         List<Long> classesWithAttendance = attendanceRepository.findClassIdsWithAttendanceOnDate(classIds, today);
+        log.debug("Classes with attendance marked today: {}", classesWithAttendance);
 
         List<AttendanceStatusResponse> response = classIds.stream()
                 .map(classId -> {
@@ -385,6 +413,11 @@ public class TeacherController {
                             .build();
                 })
                 .collect(Collectors.toList());
+
+        long pendingCount = response.stream().filter(AttendanceStatusResponse::isPending).count();
+        long completedCount = response.stream().filter(AttendanceStatusResponse::isCompleted).count();
+        log.info("POST /attendance/status - Response: {} classes checked, {} pending, {} completed",
+                response.size(), pendingCount, completedCount);
 
         return ResponseEntity.ok(response);
     }
