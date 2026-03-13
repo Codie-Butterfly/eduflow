@@ -354,9 +354,9 @@ public class TeacherController {
 
         List<Assessment> assessments;
         if (academicYear != null) {
-            assessments = assessmentRepository.findByTeacherIdAndAcademicYearOrderByDateDesc(teacher.getId(), academicYear);
+            assessments = assessmentRepository.findByTeacherIdAndAcademicYearWithDetails(teacher.getId(), academicYear);
         } else {
-            assessments = assessmentRepository.findByTeacherIdOrderByDateDesc(teacher.getId());
+            assessments = assessmentRepository.findByTeacherIdWithDetails(teacher.getId());
         }
 
         List<AssessmentResponse> response = assessments.stream()
@@ -374,7 +374,7 @@ public class TeacherController {
             @AuthenticationPrincipal UserDetails userDetails) {
         log.info("GET /assessments/{} - Request: user={}", assessmentId, userDetails.getUsername());
 
-        Assessment assessment = assessmentRepository.findById(assessmentId)
+        Assessment assessment = assessmentRepository.findByIdWithDetails(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment", "id", assessmentId));
 
         AssessmentResponse response = mapToAssessmentResponse(assessment, true);
@@ -425,9 +425,9 @@ public class TeacherController {
 
         List<Assessment> assessments;
         if (subjectId != null) {
-            assessments = assessmentRepository.findBySchoolClassIdAndSubjectIdOrderByDateDesc(classId, subjectId);
+            assessments = assessmentRepository.findBySchoolClassIdAndSubjectIdWithDetails(classId, subjectId);
         } else {
-            assessments = assessmentRepository.findBySchoolClassIdOrderByDateDesc(classId);
+            assessments = assessmentRepository.findBySchoolClassIdWithDetails(classId);
         }
 
         List<AssessmentResponse> response = assessments.stream()
