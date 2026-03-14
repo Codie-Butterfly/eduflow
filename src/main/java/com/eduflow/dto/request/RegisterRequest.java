@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -33,6 +35,6 @@ public class RegisterRequest {
     @NotBlank(message = "Role is required")
     private String role;
 
-    // Required for PARENT registration - the child's student ID
-    private String studentId;
+    // Required for PARENT registration - the children's student IDs
+    private List<String> studentIds;
 }

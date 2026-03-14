@@ -105,7 +105,7 @@ public class AuthServiceImpl implements AuthService {
         user = userRepository.save(user);
 
         // Create corresponding entity based on role
-        createRoleSpecificEntity(user, roleName, request.getStudentId());
+        createRoleSpecificEntity(user, roleName, request.getStudentIds());
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -234,7 +234,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    private void createRoleSpecificEntity(User user, Role.RoleName roleName, String childStudentId) {
+    private void createRoleSpecificEntity(User user, Role.RoleName roleName, java.util.List<String> childStudentIds) {
         switch (roleName) {
             case TEACHER -> {
                 String employeeId = generateEmployeeId();
@@ -258,17 +258,9 @@ public class AuthServiceImpl implements AuthService {
                 log.info("Student profile created for user: {} with studentId: {}", user.getEmail(), studentId);
             }
             case PARENT -> {
-                // For parent registration, we need to link to an existing student
-                if (childStudentId == null || childStudentId.isBlank()) {
-                    throw new BadRequestException("Student ID is required for parent registration");
-                }
-
-                Student child = studentRepository.findByStudentId(childStudentId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Student", "studentId", childStudentId));
-
-                // Check if student already has a parent
-                if (child.getParent() != null) {
-                    throw new BadRequestException("This student is already linked to a parent account");
+                // For parent registration, we need to link to existing students
+                if (childStudentIds == null || childStudentIds.isEmpty()) {
+                    throw new BadRequestException("At least one Student ID is required for parent registration");
                 }
 
                 Parent parent = Parent.builder()
@@ -276,12 +268,26 @@ public class AuthServiceImpl implements AuthService {
                         .build();
                 parent = parentRepository.save(parent);
 
-                // Link the child to the parent
-                child.setParent(parent);
-                studentRepository.save(child);
+                // Link all children to the parent
+                for (String childStudentId : childStudentIds) {
+                    if (childStudentId == null || childStudentId.isBlank()) {
+                        continue;
+                    }
 
-                log.info("Parent profile created for user: {} and linked to student: {}",
-                        user.getEmail(), childStudentId);
+                    Student child = studentRepository.findByStudentId(childStudentId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Student", "studentId", childStudentId));
+
+                    // Check if student already has a parent
+                    if (child.getParent() != null) {
+                        throw new BadRequestException("Student " + childStudentId + " is already linked to a parent account");
+                    }
+
+                    child.setParent(parent);
+                    studentRepository.save(child);
+                }
+
+                log.info("Parent profile created for user: {} and linked to {} student(s): {}",
+                        user.getEmail(), childStudentIds.size(), childStudentIds);
             }
             default -> {
                 // ADMIN doesn't need a separate entity
