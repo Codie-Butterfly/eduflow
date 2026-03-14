@@ -18,6 +18,9 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     Optional<Student> findByUserId(Long userId);
 
+    @Query("SELECT s FROM Student s JOIN FETCH s.user u LEFT JOIN FETCH s.currentClass WHERE u.email = :email")
+    Optional<Student> findByUserEmail(@Param("email") String email);
+
     boolean existsByStudentId(String studentId);
 
     @Query("SELECT s FROM Student s WHERE s.currentClass.id = :classId")

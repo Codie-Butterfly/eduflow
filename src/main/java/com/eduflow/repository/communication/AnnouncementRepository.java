@@ -62,4 +62,15 @@ public interface AnnouncementRepository extends JpaRepository<Announcement, Long
             "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetUserIds u WHERE u = :userId))) " +
             "AND a.id NOT IN (SELECT ar.announcement.id FROM AnnouncementRead ar WHERE ar.user.id = :userId)")
     long countUnreadForParent(@Param("classIds") List<Long> classIds, @Param("userId") Long userId);
+
+    // Find announcements for students - includes ALL, STUDENTS, CLASS-targeted, and user-specific
+    @Query("SELECT DISTINCT a FROM Announcement a WHERE a.status = 'PUBLISHED' " +
+            "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
+            "AND (a.targetType = 'ALL' OR a.targetType = 'STUDENTS' " +
+            "OR (a.targetType = 'CLASS' AND EXISTS (SELECT 1 FROM a.targetClassIds c WHERE c = :classId)) " +
+            "OR (a.targetType = 'SPECIFIC_USERS' AND EXISTS (SELECT 1 FROM a.targetUserIds u WHERE u = :userId))) " +
+            "ORDER BY a.priority DESC, a.publishedAt DESC")
+    Page<Announcement> findAnnouncementsForStudent(@Param("classId") Long classId,
+                                                    @Param("userId") Long userId,
+                                                    Pageable pageable);
 }
