@@ -62,6 +62,11 @@ springdoc:
     path: /swagger-ui.html
     operationsSorter: method
 
+# App Configuration
+app:
+  frontend:
+    url: ${FRONTEND_URL:https://eduflow.com}
+
 # Logging
 logging:
   level:

@@ -18,6 +18,7 @@ import com.eduflow.repository.academic.SchoolClassRepository;
 import com.eduflow.repository.academic.StudentRepository;
 import com.eduflow.repository.user.RoleRepository;
 import com.eduflow.repository.user.UserRepository;
+import com.eduflow.service.EmailService;
 import com.eduflow.service.StudentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -43,6 +43,7 @@ public class StudentServiceImpl implements StudentService {
     private final SchoolClassRepository classRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -54,9 +55,12 @@ public class StudentServiceImpl implements StudentService {
         Role studentRole = roleRepository.findByName(Role.RoleName.STUDENT)
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "name", "STUDENT"));
 
+        // Generate secure password
+        String plainPassword = emailService.generateSecurePassword();
+
         User user = User.builder()
                 .email(request.getEmail())
-                .password(passwordEncoder.encode(generateTemporaryPassword()))
+                .password(passwordEncoder.encode(plainPassword))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .phone(request.getPhone())
@@ -93,6 +97,10 @@ public class StudentServiceImpl implements StudentService {
 
         student = studentRepository.save(student);
         log.info("Student created successfully: {}", student.getStudentId());
+
+        // Send welcome email with credentials asynchronously
+        String fullName = request.getFirstName() + " " + request.getLastName();
+        emailService.sendWelcomeEmailAsync(request.getEmail(), fullName, "Student", plainPassword);
 
         return mapToResponse(student);
     }
@@ -252,10 +260,6 @@ public class StudentServiceImpl implements StudentService {
         Integer maxNum = studentRepository.findMaxStudentIdNumber(prefix);
         int nextNum = (maxNum != null ? maxNum : 0) + 1;
         return prefix + String.format("%04d", nextNum);
-    }
-
-    private String generateTemporaryPassword() {
-        return UUID.randomUUID().toString().substring(0, 8);
     }
 
     private StudentResponse mapToResponse(Student student) {

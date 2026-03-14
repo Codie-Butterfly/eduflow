@@ -14,6 +14,7 @@ import com.eduflow.repository.academic.SubjectRepository;
 import com.eduflow.repository.academic.TeacherRepository;
 import com.eduflow.repository.user.RoleRepository;
 import com.eduflow.repository.user.UserRepository;
+import com.eduflow.service.EmailService;
 import com.eduflow.service.TeacherService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,6 @@ import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -40,6 +40,7 @@ public class TeacherServiceImpl implements TeacherService {
     private final RoleRepository roleRepository;
     private final SubjectRepository subjectRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -51,9 +52,12 @@ public class TeacherServiceImpl implements TeacherService {
         Role teacherRole = roleRepository.findByName(Role.RoleName.TEACHER)
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "name", "TEACHER"));
 
+        // Generate secure password
+        String plainPassword = emailService.generateSecurePassword();
+
         User user = User.builder()
                 .email(request.getEmail())
-                .password(passwordEncoder.encode(generateTemporaryPassword()))
+                .password(passwordEncoder.encode(plainPassword))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .phone(request.getPhone())
@@ -80,6 +84,10 @@ public class TeacherServiceImpl implements TeacherService {
 
         teacher = teacherRepository.save(teacher);
         log.info("Teacher created: {}", teacher.getEmployeeId());
+
+        // Send welcome email with credentials asynchronously
+        String fullName = request.getFirstName() + " " + request.getLastName();
+        emailService.sendWelcomeEmailAsync(request.getEmail(), fullName, "Teacher", plainPassword);
 
         return mapToResponse(teacher);
     }
@@ -209,10 +217,6 @@ public class TeacherServiceImpl implements TeacherService {
         Integer maxNum = teacherRepository.findMaxEmployeeIdNumber(prefix);
         int nextNum = (maxNum != null ? maxNum : 0) + 1;
         return prefix + String.format("%04d", nextNum);
-    }
-
-    private String generateTemporaryPassword() {
-        return UUID.randomUUID().toString().substring(0, 8);
     }
 
     private TeacherResponse mapToResponse(Teacher teacher) {
