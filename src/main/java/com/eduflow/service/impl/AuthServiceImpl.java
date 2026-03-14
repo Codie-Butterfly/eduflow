@@ -19,6 +19,7 @@ import com.eduflow.repository.user.RoleRepository;
 import com.eduflow.repository.user.UserRepository;
 import com.eduflow.security.jwt.JwtTokenProvider;
 import com.eduflow.service.AuthService;
+import com.eduflow.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -46,6 +47,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -192,8 +194,14 @@ public class AuthServiceImpl implements AuthService {
             String token = UUID.randomUUID().toString();
             user.setPasswordResetToken(token);
             userRepository.save(user);
-            // TODO: Send email with reset link
-            log.info("Password reset token generated for user: {}", user.getEmail());
+
+            // Send password reset email asynchronously
+            emailService.sendPasswordResetEmailAsync(
+                    user.getEmail(),
+                    user.getFullName(),
+                    token
+            );
+            log.info("Password reset token generated and email sent for user: {}", user.getEmail());
         }
 
         // Always return success to prevent email enumeration

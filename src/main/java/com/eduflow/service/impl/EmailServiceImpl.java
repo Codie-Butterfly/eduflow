@@ -75,6 +75,165 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    public void sendPasswordResetEmail(String toEmail, String name, String resetToken) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("EduFlow - Password Reset Request");
+
+            String htmlContent = buildPasswordResetEmailHtml(name, resetToken);
+            helper.setText(htmlContent, true);
+
+            // Add logo as inline image
+            ClassPathResource logo = new ClassPathResource("static/images/eduflow-logo.png");
+            helper.addInline("logo", logo);
+
+            mailSender.send(message);
+            log.info("Password reset email sent successfully to: {}", toEmail);
+        } catch (MessagingException e) {
+            log.error("Failed to send password reset email to {}: {}", toEmail, e.getMessage());
+            throw new RuntimeException("Failed to send password reset email", e);
+        }
+    }
+
+    @Override
+    @Async
+    public void sendPasswordResetEmailAsync(String toEmail, String name, String resetToken) {
+        try {
+            sendPasswordResetEmail(toEmail, name, resetToken);
+        } catch (Exception e) {
+            log.error("Async password reset email failed for {}: {}", toEmail, e.getMessage());
+        }
+    }
+
+    private String buildPasswordResetEmailHtml(String name, String resetToken) {
+        String resetUrl = frontendUrl + "/auth/reset-password?token=" + resetToken;
+
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background-color: #f5f5f5;
+                        margin: 0;
+                        padding: 20px;
+                    }
+                    .container {
+                        max-width: 600px;
+                        margin: 0 auto;
+                        background: white;
+                        border-radius: 12px;
+                        overflow: hidden;
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    }
+                    .header {
+                        background: #ffffff;
+                        padding: 30px;
+                        text-align: center;
+                        border-bottom: 1px solid #eee;
+                    }
+                    .logo-img {
+                        max-height: 120px;
+                        width: auto;
+                    }
+                    .content {
+                        padding: 40px 30px;
+                    }
+                    h2 {
+                        color: #1a237e;
+                        margin-top: 0;
+                        font-size: 24px;
+                    }
+                    p {
+                        color: #555;
+                        line-height: 1.6;
+                        margin: 15px 0;
+                    }
+                    .button {
+                        display: inline-block;
+                        background: linear-gradient(135deg, #3f51b5 0%%, #1a237e 100%%);
+                        color: #ffffff !important;
+                        padding: 14px 40px;
+                        text-decoration: none;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        margin-top: 20px;
+                        text-align: center;
+                    }
+                    .button:hover {
+                        opacity: 0.9;
+                    }
+                    a.button {
+                        color: #ffffff !important;
+                    }
+                    .warning {
+                        background: #fff3e0;
+                        border-left: 4px solid #ff9800;
+                        padding: 15px;
+                        border-radius: 4px;
+                        margin: 25px 0;
+                    }
+                    .warning strong {
+                        color: #e65100;
+                    }
+                    .info {
+                        background: #e3f2fd;
+                        border-left: 4px solid #2196f3;
+                        padding: 15px;
+                        border-radius: 4px;
+                        margin: 25px 0;
+                        font-size: 14px;
+                    }
+                    .footer {
+                        padding: 25px 30px;
+                        text-align: center;
+                        color: #999;
+                        font-size: 12px;
+                        border-top: 1px solid #eee;
+                        background: #fafafa;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <img src="cid:logo" alt="EduFlow" class="logo-img" />
+                    </div>
+                    <div class="content">
+                        <h2>Password Reset Request</h2>
+                        <p>Hello <strong>%s</strong>,</p>
+                        <p>We received a request to reset your EduFlow account password. Click the button below to create a new password:</p>
+
+                        <center>
+                            <a href="%s" class="button" style="color: #ffffff !important;">Reset Password</a>
+                        </center>
+
+                        <div class="warning">
+                            <strong>Important:</strong> This link will expire in 1 hour for security purposes.
+                        </div>
+
+                        <div class="info">
+                            If you did not request a password reset, please ignore this email. Your password will remain unchanged.
+                        </div>
+                    </div>
+                    <div class="footer">
+                        <p>This is an automated message from EduFlow. Please do not reply to this email.</p>
+                        <p>&copy; 2024 EduFlow. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(name, resetUrl);
+    }
+
     private String buildWelcomeEmailHtml(String name, String email, String password, String role) {
         String loginUrl = frontendUrl + "/auth/login";
 

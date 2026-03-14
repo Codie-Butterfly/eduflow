@@ -16,4 +16,14 @@ public interface EmailService {
      * Sends welcome email asynchronously (non-blocking)
      */
     void sendWelcomeEmailAsync(String toEmail, String name, String role, String password);
+
+    /**
+     * Sends password reset email with reset link
+     */
+    void sendPasswordResetEmail(String toEmail, String name, String resetToken);
+
+    /**
+     * Sends password reset email asynchronously (non-blocking)
+     */
+    void sendPasswordResetEmailAsync(String toEmail, String name, String resetToken);
 }
