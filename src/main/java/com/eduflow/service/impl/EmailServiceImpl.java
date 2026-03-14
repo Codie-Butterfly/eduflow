@@ -100,12 +100,13 @@ public class EmailServiceImpl implements EmailService {
                         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                     }
                     .header {
-                        background: linear-gradient(135deg, #3f51b5 0%%, #1a237e 100%%);
+                        background: #ffffff;
                         padding: 30px;
                         text-align: center;
+                        border-bottom: 1px solid #eee;
                     }
                     .logo-img {
-                        max-height: 80px;
+                        max-height: 120px;
                         width: auto;
                     }
                     .content {
