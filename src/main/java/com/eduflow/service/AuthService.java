@@ -17,4 +17,6 @@ public interface AuthService {
     MessageResponse forgotPassword(ForgotPasswordRequest request);
 
     MessageResponse resetPassword(ResetPasswordRequest request);
+
+    MessageResponse changePassword(String userEmail, ChangePasswordRequest request);
 }
