@@ -6,6 +6,7 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -52,6 +53,10 @@ public class EmailServiceImpl implements EmailService {
             String htmlContent = buildWelcomeEmailHtml(name, toEmail, password, role);
             helper.setText(htmlContent, true);
 
+            // Add logo as inline image
+            ClassPathResource logo = new ClassPathResource("static/images/eduflow-logo.png");
+            helper.addInline("logo", logo);
+
             mailSender.send(message);
             log.info("Welcome email sent successfully to: {}", toEmail);
         } catch (MessagingException e) {
@@ -96,18 +101,12 @@ public class EmailServiceImpl implements EmailService {
                     }
                     .header {
                         background: linear-gradient(135deg, #3f51b5 0%%, #1a237e 100%%);
-                        padding: 40px 30px;
+                        padding: 30px;
                         text-align: center;
                     }
-                    .logo {
-                        font-size: 32px;
-                        font-weight: bold;
-                        color: white;
-                        letter-spacing: 2px;
-                    }
-                    .logo-icon {
-                        font-size: 40px;
-                        margin-bottom: 10px;
+                    .logo-img {
+                        max-height: 80px;
+                        width: auto;
                     }
                     .content {
                         padding: 40px 30px;
@@ -195,8 +194,7 @@ public class EmailServiceImpl implements EmailService {
             <body>
                 <div class="container">
                     <div class="header">
-                        <div class="logo-icon">🎓</div>
-                        <div class="logo">EduFlow</div>
+                        <img src="cid:logo" alt="EduFlow" class="logo-img" />
                     </div>
                     <div class="content">
                         <h2>Welcome to EduFlow!</h2>
