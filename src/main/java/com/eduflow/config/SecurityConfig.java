@@ -43,7 +43,9 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/h2-console/**",
             "/actuator/health",
-            "/v1/webhooks/**"
+            "/v1/webhooks/**",
+            "/files/**",
+            "/v1/files/config"
     };
 
     @Bean
