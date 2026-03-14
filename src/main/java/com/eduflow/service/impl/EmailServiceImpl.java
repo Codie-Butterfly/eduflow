@@ -20,7 +20,7 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username:noreply@eduflow.com}")
+    @Value("${spring.mail.username}")
     private String fromEmail;
 
     @Value("${app.frontend.url:https://eduflow.com}")
