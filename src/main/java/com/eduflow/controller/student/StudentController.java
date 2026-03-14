@@ -14,6 +14,7 @@ import com.eduflow.repository.communication.NotificationRepository;
 import com.eduflow.repository.finance.PaymentRepository;
 import com.eduflow.repository.finance.StudentFeeAssignmentRepository;
 import com.eduflow.service.FeeService;
+import com.eduflow.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,7 @@ public class StudentController {
 
     private final StudentRepository studentRepository;
     private final FeeService feeService;
+    private final PaymentService paymentService;
     private final StudentFeeAssignmentRepository feeAssignmentRepository;
     private final PaymentRepository paymentRepository;
     private final AssessmentScoreRepository assessmentScoreRepository;
@@ -182,6 +184,24 @@ public class StudentController {
             @AuthenticationPrincipal UserDetails userDetails) {
         Student student = getStudentFromUser(userDetails);
         return ResponseEntity.ok(feeService.getStudentFeesByYear(student.getId(), academicYear));
+    }
+
+    @GetMapping("/payments")
+    @Operation(summary = "Get payment history", description = "Get payment history for the logged-in student")
+    public ResponseEntity<PagedResponse<PaymentResponse>> getPayments(
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Student student = getStudentFromUser(userDetails);
+        return ResponseEntity.ok(paymentService.getPaymentsByStudentId(student.getId(), pageable));
+    }
+
+    @GetMapping("/payments/{paymentId}")
+    @Operation(summary = "Get payment details", description = "Get details of a specific payment")
+    public ResponseEntity<PaymentResponse> getPaymentDetails(
+            @PathVariable Long paymentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        // TODO: Add validation that payment belongs to this student
+        return ResponseEntity.ok(paymentService.getPaymentById(paymentId));
     }
 
     @GetMapping("/grades")
