@@ -160,7 +160,7 @@ public class EmailServiceImpl implements EmailService {
                     .button {
                         display: inline-block;
                         background: linear-gradient(135deg, #3f51b5 0%%, #1a237e 100%%);
-                        color: white;
+                        color: #ffffff !important;
                         padding: 14px 40px;
                         text-decoration: none;
                         border-radius: 6px;
@@ -170,6 +170,9 @@ public class EmailServiceImpl implements EmailService {
                     }
                     .button:hover {
                         opacity: 0.9;
+                    }
+                    a.button {
+                        color: #ffffff !important;
                     }
                     .warning {
                         background: #fff3e0;
@@ -217,7 +220,7 @@ public class EmailServiceImpl implements EmailService {
                         </div>
 
                         <center>
-                            <a href="%s" class="button">Login to EduFlow</a>
+                            <a href="%s" class="button" style="color: #ffffff !important;">Login to EduFlow</a>
                         </center>
                     </div>
                     <div class="footer">
