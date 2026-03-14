@@ -55,6 +55,7 @@ jobs:
           SERVER_IP: ${{ secrets.SERVER_IP }}
           DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
         run: |
           sshpass -p "${SCP_PASSWORD}" ssh -o StrictHostKeyChecking=no ${SCP_USERNAME}@${SERVER_IP} << EOF
 
@@ -71,6 +72,7 @@ jobs:
             --restart always \
             -p 8099:8099 \
             -e SPRING_PROFILES_ACTIVE=prod \
+            -e FRONTEND_URL=${FRONTEND_URL} \
             ${DOCKER_USER}/eduflow:latest
 
           EOF
