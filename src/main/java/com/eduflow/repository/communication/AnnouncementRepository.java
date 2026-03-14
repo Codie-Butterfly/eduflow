@@ -18,6 +18,8 @@ public interface AnnouncementRepository extends JpaRepository<Announcement, Long
 
     List<Announcement> findBySenderId(Long senderId);
 
+    Page<Announcement> findBySenderIdOrderByPublishedAtDesc(Long senderId, Pageable pageable);
+
     @Query("SELECT a FROM Announcement a WHERE a.status = 'PUBLISHED' " +
             "AND (a.expiresAt IS NULL OR a.expiresAt > CURRENT_TIMESTAMP) " +
             "ORDER BY a.priority DESC, a.publishedAt DESC")

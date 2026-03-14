@@ -910,6 +910,23 @@ public class TeacherController {
         return ResponseEntity.ok(PagedResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements()));
     }
 
+    @GetMapping("/announcements/my")
+    @Operation(summary = "Get my announcements", description = "Get announcements created by the logged-in teacher")
+    public ResponseEntity<PagedResponse<AnnouncementResponse>> getMyAnnouncements(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Teacher teacher = getTeacherFromUser(userDetails);
+        Long userId = teacher.getUser().getId();
+
+        Page<Announcement> page = announcementRepository.findBySenderIdOrderByPublishedAtDesc(userId, pageable);
+
+        List<AnnouncementResponse> content = page.getContent().stream()
+                .map(a -> mapToAnnouncementResponse(a, true))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(PagedResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements()));
+    }
+
     @PostMapping("/announcements")
     @Operation(summary = "Create announcement", description = "Create a new announcement as a teacher")
     public ResponseEntity<AnnouncementResponse> createAnnouncement(
